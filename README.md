@@ -3,6 +3,7 @@ Un mini codigo para registrar actividades de atencion a cliente de forma rapida.
 
 ### Feo pero funcional
 
+Codico creado en una hora con chatGPT como lider de proyecto
 Permite registrar llamadas de soporte junto con el usuario que la atendio y poder exportarlo en formato excel.
 
 ## Registro de llamadas
