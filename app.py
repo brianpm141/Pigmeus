@@ -35,9 +35,10 @@ def init_db():
     conn.commit()
     return conn, cursor
 
+# Conexión global
 db_conn, cursor = init_db()
 
-# Funciones de obtención
+# Funciones auxiliares para obtener datos
 def obtener_usuarios():
     cursor.execute('SELECT id, nombre FROM usuarios')
     return cursor.fetchall()
@@ -77,7 +78,7 @@ def exportar_excel():
         df.to_excel(file, index=False)
         messagebox.showinfo("Exportado", f"Archivo guardado como\n{file}")
 
-# Operaciones de llamadas
+# Funciones de operación de llamadas
 def registrar_llamada():
     detalles = entry_detalles.get().strip()
     if not detalles:
@@ -141,7 +142,7 @@ def eliminar_usuario_ui():
     if not sel:
         return
     id_u = tv_usuarios.item(sel)['values'][0]
-    if messagebox.askyesno("Confirmar", f"Eliminar usuario ID {id_u}? "):
+    if messagebox.askyesno("Confirmar", f"Eliminar usuario ID {id_u}?"):
         cursor.execute('DELETE FROM usuarios WHERE id = ?', (id_u,))
         db_conn.commit()
         refrescar_usuarios()
@@ -172,7 +173,7 @@ def eliminar_categoria_ui():
     if not sel:
         return
     id_c = tv_categorias.item(sel)['values'][0]
-    if messagebox.askyesno("Confirmar", f"Eliminar categoría ID {id_c}? "):
+    if messagebox.askyesno("Confirmar", f"Eliminar categoría ID {id_c}?"):
         cursor.execute('DELETE FROM categorias WHERE id = ?', (id_c,))
         db_conn.commit()
         refrescar_categorias()
@@ -191,13 +192,22 @@ def refrescar_combos():
 # Interfaz gráfica
 app = Tk()
 app.title("Gestor de Llamadas")
-app.geometry("950x600")
+app.geometry("1200x720")
+app.configure(bg="#e9eff5")
+
+style = ttk.Style()
+style.theme_use('clam')
+style.configure("TNotebook", background="#e9eff5")
+style.configure("TNotebook.Tab", font=("Helvetica", 16, "bold"), padding=12)
+style.configure("Treeview", rowheight=30, font=("Helvetica", 13))
+style.configure("Treeview.Heading", font=("Helvetica", 14, "bold"))
+style.configure('TButton', font=('Helvetica', 14), padding=10)
 
 notebook = ttk.Notebook(app)
-notebook.pack(expand=True, fill='both')
+notebook.pack(expand=True, fill='both', padx=20, pady=20)
 
 # Vista Llamadas
-frame_llamadas = Frame(notebook)
+frame_llamadas = Frame(notebook, bg="#e9eff5")
 notebook.add(frame_llamadas, text="Llamadas")
 
 tabla_llamadas = ttk.Treeview(
@@ -208,63 +218,65 @@ tabla_llamadas = ttk.Treeview(
 tabla_llamadas.column('ID', width=0, stretch=False)
 for col in ('Fecha', 'Hora', 'Detalles', 'Usuario', 'Categoría', 'Estado'):
     tabla_llamadas.heading(col, text=col)
-    tabla_llamadas.column(col, width=120)
+    tabla_llamadas.column(col, width=160)
 tabla_llamadas.pack(expand=True, fill='both', padx=10, pady=10)
 
-btn_atendido = Button(frame_llamadas, text="Marcar Atendida", command=marcar_atendida)
+btn_atendido = Button(frame_llamadas, text="Marcar Atendida", command=marcar_atendida, font=("Helvetica", 13))
 btn_atendido.pack(pady=5)
 
-frame_nueva = Frame(frame_llamadas)
+frame_nueva = Frame(frame_llamadas, bg="#e9eff5")
 frame_nueva.pack(fill='x', pady=10)
-Label(frame_nueva, text="Detalles:").grid(row=0, column=0)
-entry_detalles = Entry(frame_nueva, width=30)
+Label(frame_nueva, text="Detalles:", font=("Helvetica", 13), bg="#e9eff5").grid(row=0, column=0)
+entry_detalles = Entry(frame_nueva, width=30, font=("Helvetica", 13))
 entry_detalles.grid(row=0, column=1, padx=5)
-Label(frame_nueva, text="Usuario:").grid(row=0, column=2)
-combo_usuario = ttk.Combobox(frame_nueva)
+Label(frame_nueva, text="Usuario:", font=("Helvetica", 13), bg="#e9eff5").grid(row=0, column=2)
+combo_usuario = ttk.Combobox(frame_nueva, font=("Helvetica", 13))
 combo_usuario.grid(row=0, column=3, padx=5)
-Label(frame_nueva, text="Categoría:").grid(row=0, column=4)
-combo_categoria = ttk.Combobox(frame_nueva)
+Label(frame_nueva, text="Categoría:", font=("Helvetica", 13), bg="#e9eff5").grid(row=0, column=4)
+combo_categoria = ttk.Combobox(frame_nueva, font=("Helvetica", 13))
 combo_categoria.grid(row=0, column=5, padx=5)
-btn_registrar = Button(frame_nueva, text="Registrar Llamada", command=registrar_llamada)
+btn_registrar = Button(frame_nueva, text="Registrar Llamada", command=registrar_llamada, font=("Helvetica", 13))
 btn_registrar.grid(row=0, column=6, padx=5)
 
 # Vista Gestión
-frame_gestion = Frame(notebook)
+frame_gestion = Frame(notebook, bg="#e9eff5")
 notebook.add(frame_gestion, text="Gestión Usuarios/Categorías")
 
-lf_u = LabelFrame(frame_gestion, text="Usuarios")
+lf_u = LabelFrame(frame_gestion, text="Usuarios", font=("Helvetica", 14), bg="#e9eff5")
 lf_u.pack(side=LEFT, fill='both', expand=True, padx=10, pady=10)
+
 tv_usuarios = ttk.Treeview(lf_u, columns=('ID', 'Nombre'), show='headings')
 tv_usuarios.heading('ID', text='ID')
 tv_usuarios.heading('Nombre', text='Nombre')
 tv_usuarios.pack(expand=True, fill='both', pady=5)
-entry_usuario = Entry(lf_u)
+entry_usuario = Entry(lf_u, font=("Helvetica", 13))
 entry_usuario.pack(fill='x', pady=5)
-btn_crear_u = Button(lf_u, text="Crear Usuario", command=crear_usuario)
+btn_crear_u = Button(lf_u, text="Crear Usuario", command=crear_usuario, font=("Helvetica", 13))
 btn_crear_u.pack(fill='x', pady=2)
-btn_eliminar_u = Button(lf_u, text="Eliminar Usuario", command=eliminar_usuario_ui)
+btn_eliminar_u = Button(lf_u, text="Eliminar Usuario", command=eliminar_usuario_ui, font=("Helvetica", 13))
 btn_eliminar_u.pack(fill='x', pady=2)
 
-lf_c = LabelFrame(frame_gestion, text="Categorías")
+lf_c = LabelFrame(frame_gestion, text="Categorías", font=("Helvetica", 14), bg="#e9eff5")
 lf_c.pack(side=RIGHT, fill='both', expand=True, padx=10, pady=10)
+
 tv_categorias = ttk.Treeview(lf_c, columns=('ID', 'Nombre'), show='headings')
 tv_categorias.heading('ID', text='ID')
 tv_categorias.heading('Nombre', text='Nombre')
 tv_categorias.pack(expand=True, fill='both', pady=5)
-entry_categoria = Entry(lf_c)
+entry_categoria = Entry(lf_c, font=("Helvetica", 13))
 entry_categoria.pack(fill='x', pady=5)
-btn_crear_c = Button(lf_c, text="Crear Categoría", command=crear_categoria)
+btn_crear_c = Button(lf_c, text="Crear Categoría", command=crear_categoria, font=("Helvetica", 13))
 btn_crear_c.pack(fill='x', pady=2)
-btn_eliminar_c = Button(lf_c, text="Eliminar Categoría", command=eliminar_categoria_ui)
+btn_eliminar_c = Button(lf_c, text="Eliminar Categoría", command=eliminar_categoria_ui, font=("Helvetica", 13))
 btn_eliminar_c.pack(fill='x', pady=2)
 
 # Vista Exportación
-frame_extra = Frame(notebook)
+frame_extra = Frame(notebook, bg="#e9eff5")
 notebook.add(frame_extra, text="Exportar a Excel")
-Label(frame_extra, text="Exportar las llamadas registradas a Excel", font=("Arial", 12)).pack(pady=20)
-Button(frame_extra, text="Exportar", command=exportar_excel, width=20).pack(pady=10)
+Label(frame_extra, text="Exportar las llamadas registradas a Excel", font=("Helvetica", 18, "bold"), bg="#e9eff5").pack(pady=40)
+Button(frame_extra, text="Exportar", command=exportar_excel, width=25, font=("Helvetica", 16), bg="#4CAF50", fg="white").pack(pady=30)
 
-# Inicializar
+# Inicializar UI
 def inicializar_ui():
     refrescar_usuarios()
     refrescar_categorias()
