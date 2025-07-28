@@ -28,6 +28,7 @@ def init_db():
             id_usuario INTEGER,
             id_categoria INTEGER,
             atendido INTEGER DEFAULT 0,
+            hora_cierre TEXT,
             FOREIGN KEY(id_usuario) REFERENCES usuarios(id),
             FOREIGN KEY(id_categoria) REFERENCES categorias(id)
         )
@@ -38,7 +39,7 @@ def init_db():
 # Conexión global
 db_conn, cursor = init_db()
 
-# Funciones auxiliares para obtener datos
+# Funciones auxiliares
 def obtener_usuarios():
     cursor.execute('SELECT id, nombre FROM usuarios')
     return cursor.fetchall()
@@ -49,7 +50,7 @@ def obtener_categorias():
 
 def obtener_llamadas():
     cursor.execute('''
-        SELECT l.id, l.hora_llegada, l.detalles, u.nombre, c.nombre, l.atendido
+        SELECT l.id, l.hora_llegada, l.detalles, u.nombre, c.nombre, l.atendido, l.hora_cierre
         FROM llamadas l
         LEFT JOIN usuarios u ON l.id_usuario = u.id
         LEFT JOIN categorias c ON l.id_categoria = c.id
@@ -57,12 +58,11 @@ def obtener_llamadas():
     ''')
     return cursor.fetchall()
 
-# Funciones de exportación
 def exportar_excel():
     datos = obtener_llamadas()
     filas = []
     for row in datos:
-        _, hora_llegada, detalles, usuario, categoria, atendido = row
+        _, hora_llegada, detalles, usuario, categoria, atendido, hora_cierre = row
         fecha, hora = hora_llegada.split(" ") if hora_llegada else ("", "")
         filas.append({
             "Fecha": fecha,
@@ -70,7 +70,8 @@ def exportar_excel():
             "Detalles": detalles,
             "Atendió": usuario or '',
             "Categoría": categoria or '',
-            "Estado": "Atendido" if atendido else "Pendiente"
+            "Estado": "Atendido" if atendido else "Pendiente",
+            "Hora de cierre": hora_cierre or ''
         })
     df = pd.DataFrame(filas)
     file = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
@@ -78,7 +79,6 @@ def exportar_excel():
         df.to_excel(file, index=False)
         messagebox.showinfo("Exportado", f"Archivo guardado como\n{file}")
 
-# Funciones de operación de llamadas
 def registrar_llamada():
     detalles = entry_detalles.get().strip()
     if not detalles:
@@ -104,7 +104,8 @@ def marcar_atendida():
         return
     vals = tabla_llamadas.item(sel)['values']
     id_llamada = vals[0]
-    cursor.execute('UPDATE llamadas SET atendido = 1 WHERE id = ?', (id_llamada,))
+    hora_cierre = datetime.now().strftime('%H:%M:%S')
+    cursor.execute('UPDATE llamadas SET atendido = 1, hora_cierre = ? WHERE id = ?', (hora_cierre, id_llamada))
     db_conn.commit()
     actualizar_tabla()
 
@@ -112,7 +113,7 @@ def actualizar_tabla():
     for item in tabla_llamadas.get_children():
         tabla_llamadas.delete(item)
     for llamada in obtener_llamadas():
-        id_llamada, hora_llegada, detalles, usuario, categoria, atendido_flag = llamada
+        id_llamada, hora_llegada, detalles, usuario, categoria, atendido_flag, hora_cierre = llamada
         fecha, hora = ('-', '-')
         if hora_llegada:
             parts = hora_llegada.split(' ')
@@ -120,10 +121,9 @@ def actualizar_tabla():
             hora = parts[1] if len(parts) > 1 else ''
         estado_texto = 'Atendido' if atendido_flag else 'Pendiente'
         tabla_llamadas.insert('', END, values=(
-            id_llamada, fecha, hora, detalles, usuario or '-', categoria or '-', estado_texto
+            id_llamada, fecha, hora, detalles, usuario or '-', categoria or '-', estado_texto, hora_cierre or '-'
         ))
 
-# CRUD Usuarios
 def crear_usuario():
     nombre = entry_usuario.get().strip()
     if not nombre:
@@ -154,7 +154,6 @@ def refrescar_usuarios():
     for u in obtener_usuarios():
         tv_usuarios.insert('', END, values=(u[0], u[1]))
 
-# CRUD Categorías
 def crear_categoria():
     nombre = entry_categoria.get().strip()
     if not nombre:
@@ -212,13 +211,13 @@ notebook.add(frame_llamadas, text="Llamadas")
 
 tabla_llamadas = ttk.Treeview(
     frame_llamadas,
-    columns=('ID', 'Fecha', 'Hora', 'Detalles', 'Usuario', 'Categoría', 'Estado'),
+    columns=('ID', 'Fecha', 'Hora', 'Detalles', 'Usuario', 'Categoría', 'Estado', 'Hora cierre'),
     show='headings'
 )
 tabla_llamadas.column('ID', width=0, stretch=False)
-for col in ('Fecha', 'Hora', 'Detalles', 'Usuario', 'Categoría', 'Estado'):
+for col in ('Fecha', 'Hora', 'Detalles', 'Usuario', 'Categoría', 'Estado', 'Hora cierre'):
     tabla_llamadas.heading(col, text=col)
-    tabla_llamadas.column(col, width=160)
+    tabla_llamadas.column(col, width=150)
 tabla_llamadas.pack(expand=True, fill='both', padx=10, pady=10)
 
 btn_atendido = Button(frame_llamadas, text="Marcar Atendida", command=marcar_atendida, font=("Helvetica", 13))
