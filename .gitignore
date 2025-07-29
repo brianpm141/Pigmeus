@@ -3,3 +3,6 @@ llamadas.db
 .venv
 .build/
 .build
+pigmeus.spec
+build/
+build
