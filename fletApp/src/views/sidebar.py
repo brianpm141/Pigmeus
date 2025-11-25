@@ -2,7 +2,7 @@ import flet as ft
 import views.styles as styles
 
 class Sidebar(ft.Container):
-    # Agregamos el parámetro on_nav_change
+    # on_nav_change
     def __init__(self, on_nav_change):
         super().__init__()
         self.on_nav_change = on_nav_change 
@@ -45,7 +45,12 @@ class Sidebar(ft.Container):
                 # Logo
                 ft.Row(
                     [
-                        ft.Icon(ft.Icons.CHECK_CIRCLE, color=styles.PRIMARY_BLUE, size=28),
+                        ft.Image(
+                            src = "img/pigmeus.png",
+                            width=30,
+                            height=30,
+                            fit=ft.ImageFit.CONTAIN
+                        ),
                         ft.Text("Pigmeus App", size=20, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR),
                     ],
                     spacing=10,

@@ -43,8 +43,8 @@ def main(page: ft.Page):
 
     page.add(layout)
 
-    # Cargar la vista inicial por defecto
+    # vista inicial por defecto
     navigate_to("Actividades")
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.app(target=main, assets_dir="assets")
