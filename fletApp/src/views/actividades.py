@@ -1,7 +1,8 @@
 import flet as ft
 import views.styles as styles
+from views.pops.actividad import ActivityForm    
 
-class ActivitiesView(ft.Container):
+class ActividadesView(ft.Container):
     def __init__(self):
         super().__init__()
         self.expand = True
@@ -16,6 +17,11 @@ class ActivitiesView(ft.Container):
             border_radius=ft.border_radius.all(15),
             alignment=ft.alignment.center
         )
+
+    def _open_register_modal(self, e):
+        print("Open register modal")
+        form = ActivityForm(e.page)
+        form.open_dialog()
 
     def _build_view(self):
         # Datos de ejemplo
@@ -57,6 +63,7 @@ class ActivitiesView(ft.Container):
                             color=ft.Colors.WHITE,
                             style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
                             height=45,
+                            on_click=self._open_register_modal
                         ),
                         ft.OutlinedButton(
                             "Marcar como completado",

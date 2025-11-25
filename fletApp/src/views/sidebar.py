@@ -1,11 +1,16 @@
 import flet as ft
 import views.styles as styles
+import views.actividades as actividades
+import views.departamentos as departamentos
 
 class Sidebar(ft.Container):
-    # on_nav_change
     def __init__(self, on_nav_change):
         super().__init__()
         self.on_nav_change = on_nav_change 
+
+        self.nav_items={}
+
+        #---------------------Contenido---------------------
         self.width = 250
         self.bgcolor = styles.SIDEBAR_BG
         self.padding = ft.padding.all(20)
@@ -14,8 +19,34 @@ class Sidebar(ft.Container):
         )
         self.content = self._build_content()
 
+    def _highlight_item(self, selected_text):
+        """Recorre todos los items y actualiza sus estilos según la selección"""
+        for text, item_container in self.nav_items.items():
+            is_selected = (text == selected_text)
+            
+            # Cambiar fondo del contenedor
+            item_container.bgcolor = styles.PRIMARY_BLUE if is_selected else ft.Colors.TRANSPARENT
+            
+            # Accedemos a los hijos del Row (Icono y Texto) para cambiar sus colores
+            icon = item_container.content.controls[0]
+            label = item_container.content.controls[1]
+            
+            icon.color = ft.Colors.WHITE if is_selected else styles.TEXT_COLOR
+            label.color = ft.Colors.WHITE if is_selected else styles.TEXT_COLOR
+            label.weight = ft.FontWeight.W_500 if is_selected else ft.FontWeight.NORMAL
+            
+            # Actualizamos el contenedor visualmente
+            item_container.update()
+
+    def _on_item_click(self, text):
+        """Maneja el clic: navega y cambia el estilo"""
+        self.on_nav_change(text) # Cambia la vista en el main
+        self._highlight_item(text)
+
+
     def _build_item(self, icon, text, is_selected=False):
-        return ft.Container(
+        # Creamos el contenedor del item
+        item = ft.Container(
             content=ft.Row(
                 [
                     ft.Icon(
@@ -35,9 +66,13 @@ class Sidebar(ft.Container):
             border_radius=ft.border_radius.all(10),
             bgcolor=styles.PRIMARY_BLUE if is_selected else ft.Colors.TRANSPARENT,
             ink=True,
-            # AQUÍ ESTÁ LA MAGIA: Llamamos a la función que nos pasó el main
-            on_click=lambda e: self.on_nav_change(text)
+            # Al hacer clic, llamamos a nuestro manejador interno
+            on_click=lambda e: self._on_item_click(text)
         )
+        
+        # 2. Guardamos la referencia usando el texto como llave
+        self.nav_items[text] = item
+        return item
 
     def _build_content(self):
         return ft.Column(
@@ -46,10 +81,10 @@ class Sidebar(ft.Container):
                 ft.Row(
                     [
                         ft.Image(
-                            src = "img/pigmeus.png",
+                            src="img/pigmeus.png",
                             width=30,
                             height=30,
-                            fit=ft.ImageFit.CONTAIN
+                            fit=ft.ImageFit.CONTAIN,
                         ),
                         ft.Text("Pigmeus App", size=20, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR),
                     ],
@@ -58,11 +93,10 @@ class Sidebar(ft.Container):
                 ft.Divider(height=30, color=ft.Colors.TRANSPARENT),
 
                 # Menú
-                # Nota: Por ahora la selección visual (azul) es estática en "Actividades"
-                # Luego podemos hacer lógica para cambiar el color del botón activo
                 self._build_item(ft.Icons.CHECKLIST_RTL_ROUNDED, "Actividades", is_selected=True),
                 self._build_item(ft.Icons.LAYERS_OUTLINED, "Pisos y Áreas"),
                 self._build_item(ft.Icons.ASSIGNMENT_OUTLINED, "Pendientes"),
+                self._build_item(ft.Icons.ASSIGNMENT_OUTLINED, "Departamentos"),
             ],
             spacing=5,
         )
