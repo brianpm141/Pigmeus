@@ -175,7 +175,9 @@ class DepartmentsView(ft.Container):
             rows = []
             for dept in departments_data:
                 nombre_lider = f"{dept.lider.nombre} {dept.lider.apellidos}" if dept.lider else "Sin Asignar"
-                num_usuarios = len(dept.usuarios) if dept.usuarios else 0
+                # Solo contamos usuarios activos (status == 1)
+                active_users = [u for u in dept.usuarios if u.status == 1] if dept.usuarios else []
+                num_usuarios = len(active_users)
 
                 # Determinamos si esta fila debe aparecer marcada
                 is_row_selected = (dept.id == self.selected_id)
