@@ -94,9 +94,10 @@ class Sidebar(ft.Container):
 
                 # Menú
                 self._build_item(ft.Icons.CHECKLIST_RTL_ROUNDED, "Actividades", is_selected=True),
-                self._build_item(ft.Icons.LAYERS_OUTLINED, "Pisos y Áreas"),
-                self._build_item(ft.Icons.ASSIGNMENT_OUTLINED, "Pendientes"),
+                self._build_item(ft.Icons.LAYERS_OUTLINED, "Proyectos"),
+                self._build_item(ft.Icons.ASSIGNMENT_OUTLINED, "Usuario"),
                 self._build_item(ft.Icons.ASSIGNMENT_OUTLINED, "Departamentos"),
+                self._build_item(ft.Icons.ASSIGNMENT_OUTLINED, "Usuarios"),
             ],
             spacing=5,
         )

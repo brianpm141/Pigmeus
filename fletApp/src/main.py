@@ -3,6 +3,9 @@ import views.styles as styles
 from views.sidebar import Sidebar
 from views.actividades import ActividadesView
 from views.departamentos import DepartmentsView
+from views.usuarios import UsersView
+
+from db.database import init_db
 
 def main(page: ft.Page):
     page.title = "Pigmeus Teams"
@@ -23,6 +26,8 @@ def main(page: ft.Page):
             content_area.content = ActividadesView()
         elif view_name == "Departamentos":
             content_area.content = DepartmentsView()
+        elif view_name == "Usuarios":
+            content_area.content = UsersView()
         else:
             content_area.content = ft.Column(
                 controls=[
@@ -56,4 +61,13 @@ def main(page: ft.Page):
     navigate_to("Actividades")
 
 if __name__ == "__main__":
+    print("Iniciando la base de datos...")
+    try: 
+        print("Base de datos conectada correctamente")
+        init_db()
+        print("Base de datos iniciada correctamente")
+    except Exception as e:
+        print(f"Error al iniciar la base de datos: {e}")
+
+
     ft.app(target=main, assets_dir="assets")

@@ -1,0 +1,19 @@
+services:
+  db:
+    image: mariadb:11.4  # Usamos una versión estable
+    container_name: pigmeus_db_server
+    restart: always
+    environment:
+      # Contraseña del usuario root
+      MARIADB_ROOT_PASSWORD: 1234
+      # Crea esta base de datos automáticamente al iniciar
+      MARIADB_DATABASE: pigmeus_db
+      # Crea un usuario específico (opcional pero recomendado)
+      MARIADB_USER: pigmeus_user
+      MARIADB_PASSWORD: secreto_usuario
+    ports:
+      - "3306:3306"  # Mapea puerto PC:Contenedor
+    volumes:
+      # ¡CRUCIAL! Esto guarda los datos en tu carpeta local 'mysql_data'
+      # Si no pones esto, al apagar el contenedor pierdes los datos.
+      - ./mysql_data:/var/lib/mysql
