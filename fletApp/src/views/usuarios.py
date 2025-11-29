@@ -1,7 +1,7 @@
 import flet as ft
 import views.styles as styles
+import controllers.usuarios_controller as controller 
 from views.pops.usuario import UserForm
-import controllers.usuarios_controller as controller
 from views.pops.eliminar import ConfirmationDialog
 from views.pops.mensaje import Aviso
 
@@ -15,104 +15,86 @@ class UsersView(ft.Container):
             controls=self._build_layout(),
         )
         
-        # VARIABLE DE ESTADO: Guarda el ID del elemento seleccionado
+        # Estado: ID del usuario seleccionado
         self.selected_id = None 
         
+        # Cargar datos iniciales
         self.refresh_data()
 
     # --- MANEJADORES DE EVENTOS ---
 
     def _handle_select(self, e):
-        """Maneja la selección de filas (Lógica de selección única)"""
+        """Lógica de selección única"""
         is_selected = e.data == "true"
-        user_id = e.control.data # Recuperamos el ID guardado en la fila
+        user_id = e.control.data 
         
         if is_selected:
-            self.selected_id = user_id # Guardamos el ID seleccionado
+            self.selected_id = user_id
         else:
-            # Si desmarca el que estaba seleccionado, limpiamos la variable
             if self.selected_id == user_id:
                 self.selected_id = None
         
-        # Recargamos la tabla para actualizar visualmente los checkboxes
         self.refresh_data()
 
     def _open_create_modal(self, e):
-        """Abre modal para crear (sin datos)"""
         form = UserForm(e.page, on_success=self.refresh_data)
-        form.open_dialog()
+        form.show()
 
     def _open_modify_modal(self, e):
-        """Abre modal para modificar (con datos del seleccionado)"""
         if not self.selected_id:
-            self._show_alert("Selecciona un usuario para modificar", is_error=True)
+            self._show_aviso("Selecciona un usuario para modificar", is_error=True)
             return
 
-        # Buscamos los datos completos del usuario seleccionado
-        users = controller.get_all_users()
-        selected_user = next((u for u in users if u.id == self.selected_id), None)
+        # Obtener datos frescos de la BD
+        all_users = controller.get_all_users()
+        selected_user = next((u for u in all_users if u.id == self.selected_id), None)
 
         if selected_user:
-            # Convertimos el objeto SQLAlchemy a un diccionario simple para el formulario
+            # Crear diccionario compatible con el formulario
             user_dict = {
                 "id": selected_user.id,
+                "user": selected_user.user, # Username
                 "nombre": selected_user.nombre,
                 "apellidos": selected_user.apellidos,
-                "user": selected_user.user,
+                "matricula": selected_user.matricula, # Si usaste matricula en el modelo
                 "departamento_id": selected_user.departamento_id,
-                "role": selected_user.role
+                "role": selected_user.role # Ahora es string directo
             }
             
             form = UserForm(e.page, user_data=user_dict, on_success=self.refresh_data)
-            form.open_dialog()
+            form.show()
 
     def _delete_handler(self, e):
-        """Este método se ejecuta al dar clic en el botón de la Toolbar"""
         if not self.selected_id:
-            self._show_alert("Selecciona un usuario para eliminar", is_error=True)
+            self._show_aviso("Selecciona un usuario para eliminar", is_error=True)
             return
 
         dialog = ConfirmationDialog(
             self.page,
             title="Eliminar Usuario",
-            content_text="¿Estás seguro de que deseas eliminar este usuario?",
+            content_text="¿Estás seguro de que deseas dar de baja a este usuario?",
             on_confirm=self._execute_delete
         )
         dialog.show()
 
     def _execute_delete(self):
-        """Esta es la lógica real que se ejecuta SOLO si confirman"""
         result = controller.delete_user_logical(self.selected_id)
         
         if result["status"] == "success":
-            self.selected_id = None # Limpiamos selección
+            self.selected_id = None
             self.refresh_data()
-            
-            aviso = Aviso(
-                self.page, 
-                message=result["message"], 
-                is_error=False
-            )
-            aviso.show()
+            self._show_aviso(result["message"], is_error=False)
         else:
-            aviso = Aviso(
-                self.page, 
-                message=result["message"], 
-                is_error=True
-            )
-            aviso.show()
+            self._show_aviso(result["message"], is_error=True)
 
-    def _show_alert(self, message, is_error=False):
-        """Helper para mostrar SnackBars"""
-        color = ft.Colors.RED if is_error else ft.Colors.GREEN
-        self.page.snack_bar = ft.SnackBar(ft.Text(message), bgcolor=color)
-        self.page.snack_bar.open = True
-        self.page.update()
+    def _show_aviso(self, msg, is_error=False):
+        """Helper rápido para mostrar avisos simples"""
+        aviso = Aviso(self.page, message=msg, is_error=is_error)
+        aviso.show()
 
-    # --- CONSTRUCCIÓN DE UI ---
+    # --- UI LAYOUT ---
 
     def _build_layout(self):
-        
         self.toolbar = ft.Row(
             wrap=True,
             spacing=15,
@@ -171,22 +153,21 @@ class UsersView(ft.Container):
             rows = []
             for user in users_data:
                 nombre_completo = f"{user.nombre} {user.apellidos}"
+                # Manejo seguro por si el departamento fue borrado o es nulo
                 depto_nombre = user.departamento.nombre if user.departamento else "Sin Asignar"
                 
-                # Determinamos si esta fila debe aparecer marcada
                 is_row_selected = (user.id == self.selected_id)
 
                 rows.append(
                     ft.DataRow(
-                        selected=is_row_selected, # Marca visualmente
-                        on_select_changed=self._handle_select, # Evento clic
-                        data=user.id, # GUARDAMOS EL ID OCULTO EN LA FILA
-                        
+                        selected=is_row_selected,
+                        on_select_changed=self._handle_select,
+                        data=user.id, 
                         cells=[
                             ft.DataCell(ft.Text(user.user, weight=ft.FontWeight.W_500, color=styles.TEXT_COLOR)),
                             ft.DataCell(ft.Text(nombre_completo, color=styles.TEXT_COLOR)),
                             ft.DataCell(ft.Text(depto_nombre, color=styles.TEXT_COLOR)),
-                            ft.DataCell(ft.Text(self._get_role_name(user.role), color=styles.TEXT_COLOR)),
+                            ft.DataCell(ft.Text(user.role, color=styles.TEXT_COLOR)), # Rol directo
                         ],
                     )
                 )
@@ -200,11 +181,10 @@ class UsersView(ft.Container):
                     heading_row_height=60,
                     data_row_min_height=60,
                     column_spacing=20,
-                    # Habilitamos la columna de checkboxes nativa
-                    show_checkbox_column=False,
+                    show_checkbox_column=False, # Ocultamos checkboxes
                     columns=[
-                        ft.DataColumn(ft.Text("ID USUARIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("NOMBRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                        ft.DataColumn(ft.Text("USUARIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                        ft.DataColumn(ft.Text("NOMBRE COMPLETO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
                         ft.DataColumn(ft.Text("DEPARTAMENTO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
                         ft.DataColumn(ft.Text("ROL", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
                     ],
@@ -212,21 +192,14 @@ class UsersView(ft.Container):
                 )
             )
         else:
+            # Empty State
             self.data_container.content = ft.Container(
                 alignment=ft.alignment.center,
                 padding=ft.padding.only(top=50),
                 content=ft.Column(
                     controls=[
-                        ft.Icon(
-                            name=ft.Icons.PERSON_OFF_OUTLINED,
-                            size=60,
-                            color=ft.Colors.GREY_300
-                        ),
-                        ft.Text(
-                            "No hay usuarios registrados.",
-                            color=ft.Colors.GREY_500,
-                            size=16
-                        )
+                        ft.Icon(name=ft.Icons.PERSON_OFF_OUTLINED, size=60, color=ft.Colors.GREY_300),
+                        ft.Text("No hay usuarios registrados.", color=ft.Colors.GREY_500, size=16)
                     ],
                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     spacing=10
@@ -235,7 +208,3 @@ class UsersView(ft.Container):
         
         if self.data_container.page:
             self.data_container.update()
-
-    def _get_role_name(self, role_id):
-        role_map = {1: "Básico", 2: "Gerente", 3: "Administrador"}
-        return role_map.get(role_id, "Desconocido")

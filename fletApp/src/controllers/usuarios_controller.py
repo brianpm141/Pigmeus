@@ -1,3 +1,4 @@
+import bcrypt
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
@@ -26,50 +27,50 @@ def get_all_users():
         db.close()
 
 # ==========================================
-# ESCRITURA (CREATE / UPDATE)
+# ESCRITURA (CREATE)
 # ==========================================
 
-def create_user(nombre: str, apellidos: str, user_id: str, dept_id: int, role: str):
+def create_user(username: str, raw_password: str, nombre: str, apellidos: str, matricula: str, role: str, dept_id: int):
     db: Session = next(get_db())
     try:
-        # 1. Validar si el usuario (ID de empleado o username) ya existe
-        # Asumimos que 'user_id' es el campo 'user' en la BD (ID de empleado)
-        existing = db.query(Usuario).filter(Usuario.user == user_id).first()
-        if existing:
-             if existing.status == 0:
-                # Reactivar
-                existing.status = 1
-                existing.nombre = nombre
-                existing.apellidos = apellidos
-                existing.departamento_id = dept_id
-                # Mapear rol texto a int
-                role_map = {"Básico": 1, "Gerente": 2, "Administrador": 3}
-                existing.role = role_map.get(role, 1)
-                
-                db.commit()
-                return {"status": "success", "message": "Usuario reactivado exitosamente."}
-             else:
-                return {"status": "error", "message": "El ID de usuario ya existe."}
+        # 1. Validaciones de Integridad (Duplicados)
+        
+        # A) Validar Username (Login)
+        if db.query(Usuario).filter(Usuario.user == username).first():
+            return {"status": "error", "message": "El nombre de usuario (Login) ya está ocupado."}
+        
+        # B) Validar Matrícula (ID Empleado)
+        existing_mat = db.query(Usuario).filter(Usuario.matricula == matricula).first()
+        if existing_mat:
+            # Lógica de Reactivación (Si estaba borrado)
+            if existing_mat.status == 0:
+                # Nota: Para reactivar, requeriríamos lógica extra para el password/username
+                # Por seguridad, mejor pedimos usar otra matrícula o contactar soporte.
+                return {"status": "error", "message": "Esa matrícula pertenece a un usuario dado de baja."}
+            return {"status": "error", "message": "Esa matrícula ya está registrada."}
 
-        # 2. Crear Password por defecto
-        # TODO: Implementar hash real. Por ahora texto plano o hash dummy.
-        new_pass = Password(hash="default_hash_123") 
+        # 2. Encriptar Contraseña
+        hashed_bytes = bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt())
+        hashed_str = hashed_bytes.decode('utf-8')
+
+        # 3. Guardar Password
+        new_pass = Password(hash=hashed_str)
         db.add(new_pass)
-        db.flush() # Para obtener el ID del password
+        db.flush() # Obtenemos ID
 
-        # 3. Crear Usuario
-        role_map = {"Básico": 1, "Gerente": 2, "Administrador": 3}
-        role_int = role_map.get(role, 1)
-
+        # 4. Crear Usuario
+        # CORRECCIÓN: No mapeamos rol a int, lo guardamos como string directo
         new_user = Usuario(
-            user=user_id,
+            user=username,
             pass_id=new_pass.id,
             nombre=nombre,
             apellidos=apellidos,
-            role=role_int,
+            matricula=matricula,
+            role=role, 
             departamento_id=dept_id,
             status=1
         )
+        
         db.add(new_user)
         db.commit()
         
@@ -81,24 +82,35 @@ def create_user(nombre: str, apellidos: str, user_id: str, dept_id: int, role: s
     finally:
         db.close()
 
-def update_user(db_id: int, nombre: str, apellidos: str, user_id: str, dept_id: int, role: str):
+# ==========================================
+# ACTUALIZACIÓN (UPDATE)
+# ==========================================
+
+def update_user(db_id: int, nombre: str, apellidos: str, matricula: str, role: str, dept_id: int):
+    """
+    Nota: Esta función actualiza datos personales. 
+    NO actualiza contraseña ni username por seguridad.
+    """
     db: Session = next(get_db())
     try:
         user = db.query(Usuario).filter(Usuario.id == db_id).first()
         if not user: return {"status": "error", "message": "Usuario no encontrado"}
         
-        # Validar duplicado de user (ID empleado) si cambió
-        if user.user != user_id:
-            existing = db.query(Usuario).filter(Usuario.user == user_id).first()
-            if existing: return {"status": "error", "message": "El ID de usuario ya está en uso."}
+        # Validar que la nueva matrícula no pertenezca a OTRO usuario
+        existing_mat = db.query(Usuario).filter(
+            Usuario.matricula == matricula, 
+            Usuario.id != db_id # Excluirse a sí mismo
+        ).first()
+        
+        if existing_mat: 
+            return {"status": "error", "message": "La matrícula ya pertenece a otro usuario."}
 
+        # Actualizar campos
         user.nombre = nombre
         user.apellidos = apellidos
-        user.user = user_id
+        user.matricula = matricula
+        user.role = role # Guardamos string directo
         user.departamento_id = dept_id
-        
-        role_map = {"Básico": 1, "Gerente": 2, "Administrador": 3}
-        user.role = role_map.get(role, 1)
         
         db.commit()
         return {"status": "success", "message": "Usuario modificado correctamente."}
@@ -107,6 +119,10 @@ def update_user(db_id: int, nombre: str, apellidos: str, user_id: str, dept_id: 
         return {"status": "error", "message": str(e)}
     finally:
         db.close()
+
+# ==========================================
+# ELIMINACIÓN (DELETE)
+# ==========================================
 
 def delete_user_logical(db_id: int):
     db: Session = next(get_db())
@@ -117,7 +133,7 @@ def delete_user_logical(db_id: int):
         user.status = 0
         db.commit()
         
-        return {"status": "success", "message": "Usuario eliminado correctamente."}
+        return {"status": "success", "message": "Usuario dado de baja."}
     except Exception as e:
         db.rollback()
         return {"status": "error", "message": str(e)}

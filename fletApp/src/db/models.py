@@ -54,16 +54,17 @@ class Usuario(Base):
     __tablename__ = "usuarios"
 
     id = Column(Integer, primary_key=True, index=True)
-    user = Column(String(50), unique=True, nullable=False)
+    # Nombre de usuario para Login (ej. jtorres)
+    user = Column(String(50), unique=True, nullable=False) 
     pass_id = Column(Integer, ForeignKey("passwords.id"), nullable=False)
     
     nombre = Column(String(100), nullable=False)
     apellidos = Column(String(100), nullable=False)
     
-    # CAMBIO: Usaremos String para facilitar lectura de roles ("Admin", "Gerente")
-    role = Column(String(50), default="Básico", nullable=False)
+    # ESTE ES EL CAMPO QUE FALTABA EN TU BD
+    matricula = Column(String(50), unique=True, nullable=False) 
     
-    # Departamento al que pertenece (Obligatorio)
+    role = Column(String(50), default="Básico", nullable=False)
     departamento_id = Column(Integer, ForeignKey("departamentos.id"), nullable=False)
     
     status = Column(Integer, default=1)

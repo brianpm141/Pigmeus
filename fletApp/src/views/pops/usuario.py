@@ -1,7 +1,7 @@
 import flet as ft
 import views.styles as styles
+import controllers.usuarios_controller as controller # Asegurate que este nombre sea correcto (user_controller o usuarios_controller)
 import controllers.departamentos_controller as dept_controller
-import controllers.usuarios_controller as user_controller
 from views.pops.mensaje import Aviso
 
 class UserForm(ft.AlertDialog):
@@ -11,16 +11,14 @@ class UserForm(ft.AlertDialog):
         self.user_data = user_data
         self.on_success = on_success
         
-        # --- Configuración ---
         self.modal = True
         self.bgcolor = ft.Colors.WHITE
         self.surface_tint_color = ft.Colors.WHITE
-        self.shape = ft.RoundedRectangleBorder(radius=10)
-        self.scrollable = True
+        self.shape = ft.RoundedRectangleBorder(radius=12)
         
-        # --- Título ---
-        title_text = "Modificar Usuario" if user_data else "Registrar Nuevo Usuario"
-        sub_title = "Edite los datos." if user_data else "Complete la información del colaborador."
+        # --- Textos ---
+        title_text = "Modificar Usuario" if user_data else "Registrar Usuario"
+        sub_title = "Gestione los datos de acceso y perfil."
         
         self.title = ft.Column(
             [
@@ -30,195 +28,216 @@ class UserForm(ft.AlertDialog):
             spacing=5
         )
 
-        # --- Campos ---
-        
-        # 1. Nombre
+        # ==================== DEFINICIÓN DE CAMPOS ====================
+
+        # --- Credenciales ---
+        self.username_field = ft.TextField(
+            label="Usuario (Login)",
+            border_color=ft.Colors.GREY_300,
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            prefix_icon=ft.Icons.PERSON_OUTLINE,
+            expand=True # Para que ocupe espacio en la fila
+        )
+
+        self.password_field = ft.TextField(
+            label="Contraseña",
+            password=True,
+            can_reveal_password=True,
+            border_color=ft.Colors.GREY_300,
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            prefix_icon=ft.Icons.LOCK_OUTLINE,
+            expand=True
+        )
+
+        self.confirm_pass_field = ft.TextField(
+            label="Confirmar Contraseña",
+            password=True,
+            can_reveal_password=True,
+            border_color=ft.Colors.GREY_300,
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            prefix_icon=ft.Icons.LOCK_RESET,
+            expand=True
+        )
+
+        # --- Datos Personales ---
         self.name_field = ft.TextField(
-            label="Nombre(s)",
-            width=400,
-            border_color=ft.Colors.GREY_300,
-            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            on_change=self._clear_error_on_type
+            label="Nombre(s)", border_color=ft.Colors.GREY_300,
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            expand=True
         )
 
-        # 2. Apellidos
         self.lastname_field = ft.TextField(
-            label="Apellidos",
-            width=400,
-            border_color=ft.Colors.GREY_300,
-            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            on_change=self._clear_error_on_type
+            label="Apellidos", border_color=ft.Colors.GREY_300,
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            expand=True
         )
 
-        # 3. ID
         self.id_field = ft.TextField(
-            label="ID de Empleado",
-            width=400,
-            border_color=ft.Colors.GREY_300,
-            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            keyboard_type=ft.KeyboardType.NUMBER,
-            on_change=self._clear_error_on_type
+            label="Matrícula / ID", border_color=ft.Colors.GREY_300,
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            expand=True
         )
-
-        # 4. Departamento (Dinámico)
-        # Obtenemos departamentos activos
-        depts = dept_controller.get_all_departments()
-        dept_options = [ft.dropdown.Option(key=d.id, text=d.nombre) for d in depts]
 
         self.dept_dropdown = ft.Dropdown(
-            label="Departamento",
-            width=400,
-            options=dept_options,
-            border_color=ft.Colors.GREY_300,
-            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            on_change=self._clear_error_on_type
+            label="Departamento", border_color=ft.Colors.GREY_300,
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            expand=True
         )
-
-        # 5. Nivel de Usuario
+        
         self.role_dropdown = ft.Dropdown(
-            label="Nivel de Usuario",
-            width=400,
+            label="Rol / Permisos", border_color=ft.Colors.GREY_300,
             options=[
                 ft.dropdown.Option("Básico"),
                 ft.dropdown.Option("Gerente"),
                 ft.dropdown.Option("Administrador"),
             ],
-            border_color=ft.Colors.GREY_300,
-            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            value="Básico" 
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            value="Básico",
+            expand=True
         )
 
-        # --- Pre-llenado (Si es Modificar) ---
-        if user_data:
-            self.name_field.value = user_data.get("nombre", "")
-            self.lastname_field.value = user_data.get("apellidos", "")
-            self.id_field.value = user_data.get("user", "")
-            self.dept_dropdown.value = user_data.get("departamento_id")
-            
-            # Mapeo inverso de int a str para el rol
-            role_int = user_data.get("role", 1)
-            role_map_inv = {1: "Básico", 2: "Gerente", 3: "Administrador"}
-            self.role_dropdown.value = role_map_inv.get(role_int, "Básico")
+        # Cargar departamentos desde la BD
+        self._load_departments()
 
-        # --- Contenido ---
+        # ==================== LOGICA DE EDICIÓN ====================
+        # Si estamos editando, ocultamos password y llenamos datos
+        password_section = ft.Container() # Vacio por defecto
+
+        if user_data:
+            # -- MODO EDICIÓN --
+            self.username_field.value = user_data.get("user")
+            self.username_field.disabled = True # No se puede cambiar el usuario
+            self.name_field.value = user_data.get("nombre")
+            self.lastname_field.value = user_data.get("apellidos")
+            self.id_field.value = user_data.get("user") # Asumiendo que user y matricula son lo mismo o similar
+            self.role_dropdown.value = self._get_role_string(user_data.get("role"))
+            
+            # Buscamos el ID del depto para seleccionarlo
+            if user_data.get("departamento_id"):
+                self.dept_dropdown.value = str(user_data.get("departamento_id"))
+        else:
+            # -- MODO CREACIÓN --
+            # Solo mostramos los campos de contraseña si estamos creando uno nuevo
+            password_section = ft.Row(
+                controls=[self.password_field, self.confirm_pass_field],
+                spacing=15
+            )
+
+        # ==================== LAYOUT (2 COLUMNAS) ====================
         self.content = ft.Column(
-            [
-                self.name_field,
-                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-                self.lastname_field,
-                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-                self.id_field,
-                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-                self.dept_dropdown,
-                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-                self.role_dropdown,
+            controls=[
+                # Sección 1: Cuenta
+                ft.Text("Datos de Cuenta", weight=ft.FontWeight.BOLD, color=styles.PRIMARY_BLUE),
+                ft.Row([self.username_field, self.role_dropdown], spacing=15),
+                
+                # Aquí se insertan los campos de contraseña (solo en crear)
+                password_section,
+
+                ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+
+                # Sección 2: Perfil
+                ft.Text("Información Personal", weight=ft.FontWeight.BOLD, color=styles.PRIMARY_BLUE),
+                ft.Row([self.name_field, self.lastname_field], spacing=15),
+                ft.Row([self.id_field, self.dept_dropdown], spacing=15),
             ],
-            width=400,
-            height=420,
+            width=600, # Hacemos el formulario más ancho para las 2 columnas
+            height=450,
             scroll=ft.ScrollMode.AUTO
         )
 
-        # --- Botones ---
         self.actions = [
-            ft.OutlinedButton(
-                "Cancelar",
-                style=ft.ButtonStyle(
-                    color=styles.TEXT_COLOR,
-                    shape=ft.RoundedRectangleBorder(radius=8),
-                    side=ft.BorderSide(width=1, color=ft.Colors.GREY_300)
-                ),
-                height=40,
-                on_click=self.close_dialog
-            ),
-            ft.ElevatedButton(
-                "Guardar" if user_data else "Registrar",
-                style=ft.ButtonStyle(
-                    bgcolor=styles.PRIMARY_BLUE,
-                    color=ft.Colors.WHITE,
-                    shape=ft.RoundedRectangleBorder(radius=8),
-                ),
-                height=40,
-                on_click=self._save
-            ),
+            ft.OutlinedButton("Cancelar", on_click=self.close_dialog, style=ft.ButtonStyle(color=styles.TEXT_COLOR, side=ft.BorderSide(1, ft.Colors.GREY_300), shape=ft.RoundedRectangleBorder(radius=8)), height=45),
+            ft.ElevatedButton("Guardar", on_click=self._save_data, style=ft.ButtonStyle(bgcolor=styles.PRIMARY_BLUE, color=ft.Colors.WHITE, shape=ft.RoundedRectangleBorder(radius=8)), height=45),
         ]
         self.actions_alignment = ft.MainAxisAlignment.END
 
-    def _clear_error_on_type(self, e):
-        if e.control.error_text:
-            e.control.error_text = None
-            e.control.update()
+    def _load_departments(self):
+        depts = dept_controller.get_all_departments()
+        options = []
+        for d in depts:
+            options.append(ft.dropdown.Option(key=str(d.id), text=d.nombre))
+        self.dept_dropdown.options = options
 
-    def _save(self, e):
-        # Validaciones
-        has_error = False
-        
-        if not self.name_field.value:
-            self.name_field.error_text = "Campo obligatorio"
-            has_error = True
-            
-        if not self.lastname_field.value:
-            self.lastname_field.error_text = "Campo obligatorio"
-            has_error = True
-            
-        if not self.id_field.value:
-            self.id_field.error_text = "Campo obligatorio"
-            has_error = True
-            
-        if not self.dept_dropdown.value:
-            self.dept_dropdown.error_text = "Seleccione un departamento"
-            has_error = True # Dropdown no tiene on_change para limpiar error visualmente igual, pero sirve
-            self.dept_dropdown.update()
+    def _get_role_string(self, role_val):
+        # Helper por si el rol viene como int o string
+        if isinstance(role_val, int):
+            return {1: "Básico", 2: "Gerente", 3: "Administrador"}.get(role_val, "Básico")
+        return role_val
 
-        if has_error:
-            self.update()
+    def _save_data(self, e):
+        # 1. Recolección
+        user = self.username_field.value
+        pwd = self.password_field.value
+        pwd_confirm = self.confirm_pass_field.value
+        nombre = self.name_field.value
+        apellidos = self.lastname_field.value
+        matricula = self.id_field.value
+        rol = self.role_dropdown.value
+        depto_val = self.dept_dropdown.value
+
+        # 2. Validaciones Generales
+        if not all([user, nombre, apellidos, matricula, rol, depto_val]):
+            self._show_error_aviso("Todos los campos son obligatorios.")
             return
 
-        data = {
-            "nombre": self.name_field.value,
-            "apellidos": self.lastname_field.value,
-            "user_id": self.id_field.value,
-            "dept_id": int(self.dept_dropdown.value),
-            "role": self.role_dropdown.value
-        }
+        # 3. Validación de Contraseña (Solo Creación)
+        if not self.user_data:
+            if not pwd:
+                self.password_field.error_text = "Requerida"
+                self.password_field.update()
+                return
+            if pwd != pwd_confirm:
+                self.confirm_pass_field.error_text = "Las contraseñas no coinciden"
+                self.confirm_pass_field.update()
+                return
 
+        # 4. Llamar al Controlador
+        result = None
         if self.user_data:
-            # Update
-            result = user_controller.update_user(self.user_data["id"], **data)
+            # UPDATE
+            result = controller.update_user(
+                db_id=self.user_data.get("id"),
+                nombre=nombre,
+                apellidos=apellidos,
+                matricula=matricula, # Usamos el campo matricula
+                role=rol,
+                dept_id=int(depto_val)
+            )
         else:
-            # Create
-            result = user_controller.create_user(**data)
+            # CREATE
+            result = controller.create_user(
+                username=user,
+                raw_password=pwd,
+                nombre=nombre,
+                apellidos=apellidos,
+                matricula=matricula,
+                role=rol,
+                dept_id=int(depto_val)
+            )
 
+        # 5. Manejo de Resultado
         if result["status"] == "success":
             self.close_dialog(None)
             
             def on_aviso_close(e):
-                if self.on_success:
-                    self.on_success()
+                if self.on_success: self.on_success()
             
-            aviso = Aviso(
-                self.page, 
-                message=result["message"], 
-                is_error=False,
-                on_dismiss=on_aviso_close
-            )
+            # Usamos tu componente Aviso de éxito
+            aviso = Aviso(self.page, message=result["message"], is_error=False, on_dismiss=on_aviso_close)
             aviso.show()
         else:
-            # Si es error de duplicado, lo mostramos en el campo ID
-            if "ID" in result["message"] or "usuario" in result["message"]:
-                 self.id_field.error_text = result["message"]
-                 self.id_field.update()
-            else:
-                aviso = Aviso(
-                    self.page, 
-                    message=result["message"], 
-                    is_error=True
-                )
-                aviso.show()
+            # Usamos tu componente Aviso de error
+            self._show_error_aviso(result["message"])
+
+    def _show_error_aviso(self, msg):
+        aviso = Aviso(self.page, message=msg, is_error=True)
+        aviso.show()
+
+    def show(self):
+        self.page.open(self)
 
     def open_dialog(self):
         self.page.open(self)
