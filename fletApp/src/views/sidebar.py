@@ -2,6 +2,7 @@ import flet as ft
 import views.styles as styles
 import views.actividades as actividades
 import views.departamentos as departamentos
+import views.categorias as categorias
 
 class Sidebar(ft.Container):
     def __init__(self, on_nav_change):
@@ -93,10 +94,11 @@ class Sidebar(ft.Container):
                 ft.Divider(height=30, color=ft.Colors.TRANSPARENT),
 
                 # Menú
-                self._build_item(ft.Icons.CHECKLIST_RTL_ROUNDED, "Actividades", is_selected=True),
-                self._build_item(ft.Icons.LAYERS_OUTLINED, "Proyectos"),
-                self._build_item(ft.Icons.ASSIGNMENT_OUTLINED, "Departamentos"),
-                self._build_item(ft.Icons.ASSIGNMENT_OUTLINED, "Usuarios"),
+                self._build_item(ft.Icons.TASK_ALT, "Actividades", is_selected=True),  # O checklist
+                self._build_item(ft.Icons.ROCKET_LAUNCH_OUTLINED, "Proyectos"),        # Metáfora de "lanzar" proyectos
+                self._build_item(ft.Icons.BUSINESS, "Departamentos"),                  # Edificio/Oficina
+                self._build_item(ft.Icons.PEOPLE_OUTLINE, "Usuarios"),                 # Grupo de personas
+                self._build_item(ft.Icons.CATEGORY_OUTLINED, "Categorias"),               # Clasificación
             ],
             spacing=5,
         )

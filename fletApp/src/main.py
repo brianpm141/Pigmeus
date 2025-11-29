@@ -4,6 +4,7 @@ from views.sidebar import Sidebar
 from views.actividades import ActividadesView
 from views.departamentos import DepartmentsView
 from views.usuarios import UsersView
+from views.categorias import CategoriesView
 
 from db.database import init_db
 
@@ -28,6 +29,8 @@ def main(page: ft.Page):
             content_area.content = DepartmentsView()
         elif view_name == "Usuarios":
             content_area.content = UsersView()
+        elif view_name == "Categorias":
+            content_area.content = CategoriesView()
         else:
             content_area.content = ft.Column(
                 controls=[

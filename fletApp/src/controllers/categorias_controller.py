@@ -1,13 +1,16 @@
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
-from db.database import get_db_context
+
 from db.models import Categoria, Departamento
+from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 
 # ==========================================
 # LECTURA (READ)
 # ==========================================
 
 def get_all_categories():
+    # IMPORTACIÓN LOCAL (Mueve el import aquí dentro)
+    from db.database import get_db_context 
+    
     with get_db_context() as db:
         try:
             categories = db.query(Categoria).options(
@@ -26,6 +29,9 @@ def get_all_categories():
 # ==========================================
 
 def create_category(nombre: str, dept_id: int):
+    # IMPORTACIÓN LOCAL
+    from db.database import get_db_context 
+
     with get_db_context() as db:
         try:
             nombre_limpio = nombre.strip()
@@ -59,14 +65,17 @@ def create_category(nombre: str, dept_id: int):
             return {"status": "error", "message": f"Error en BD: {str(e)}"}
 
 def update_category(cat_id: int, nombre: str, dept_id: int):
+    # IMPORTACIÓN LOCAL
+    from db.database import get_db_context 
+
     with get_db_context() as db:
+        # ... (resto de tu código igual) ...
         try:
             cat = db.query(Categoria).filter(Categoria.id == cat_id).first()
             if not cat: return {"status": "error", "message": "Categoría no encontrada"}
             
             nombre_limpio = nombre.strip()
             
-            # Validar duplicado (excluyendo la actual)
             existing = db.query(Categoria).filter(
                 func.lower(Categoria.nombre) == nombre_limpio.lower(),
                 Categoria.departamento_id == dept_id,
@@ -85,6 +94,9 @@ def update_category(cat_id: int, nombre: str, dept_id: int):
             return {"status": "error", "message": str(e)}
 
 def delete_category_logical(cat_id: int):
+    # IMPORTACIÓN LOCAL
+    from db.database import get_db_context 
+
     with get_db_context() as db:
         try:
             cat = db.query(Categoria).filter(Categoria.id == cat_id).first()
