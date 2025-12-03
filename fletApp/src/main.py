@@ -12,6 +12,15 @@ def main(page: ft.Page):
     page.title = "Pigmeus Teams"
     styles.apply_theme(page)
 
+    def handle_keyboard_event(e: ft.KeyboardEvent):
+        if e.key == "Escape":
+            if page.overlay:
+                page.close(page.overlay[-1])
+            elif page.dialog:
+                page.close(page.dialog)
+
+    page.on_keyboard_event = handle_keyboard_event
+
     # --------------------Contenido ---------------------
     content_area = ft.Container(
         expand=True,

@@ -87,7 +87,7 @@ class Sidebar(ft.Container):
                             height=30,
                             fit=ft.ImageFit.CONTAIN,
                         ),
-                        ft.Text("Pigmeus App", size=20, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR),
+                        ft.Text("Pigmeus Teams", size=20, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR),
                     ],
                     spacing=10,
                 ),
