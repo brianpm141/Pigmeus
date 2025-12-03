@@ -1,117 +1,171 @@
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
-from db.database import get_db_context
-from db.models import Actividad, Categoria, Usuario
+import bcrypt
 from datetime import datetime
+from sqlalchemy.orm import Session, joinedload
+from db.database import get_db
+from db.models import Actividad, Usuario, Categoria, Departamento, Proyecto
 
 # ==========================================
 # LECTURA (READ)
 # ==========================================
 
-def get_all_activities():
-    with get_db_context() as db:
-        try:
-            activities = db.query(Actividad).options(
-                joinedload(Actividad.usuario_rel),
-                joinedload(Actividad.categoria_rel)
-            ).filter(
-                Actividad.status == 1
-            ).order_by(Actividad.created_at.desc()).all()
-            
-            return activities
-        except Exception as e:
-            print(f"Error al obtener actividades: {e}")
-            return []
-
-def get_categories():
-    with get_db_context() as db:
-        try:
-            # Asumimos que queremos todas las categorías activas
-            # Podríamos filtrar por departamento si fuera necesario, pero por ahora todas.
-            categories = db.query(Categoria).filter(Categoria.status == 1).order_by(Categoria.nombre.asc()).all()
-            return categories
-        except Exception as e:
-            print(f"Error al obtener categorías: {e}")
-            return []
+def get_activities():
+    db: Session = next(get_db())
+    try:
+        activities = db.query(Actividad).options(
+            joinedload(Actividad.usuario_rel),
+            joinedload(Actividad.categoria_rel),
+            joinedload(Actividad.departamento_rel),
+            joinedload(Actividad.proyecto_rel)
+        ).filter(
+            Actividad.status == 1
+        ).order_by(Actividad.created_at.desc()).all()
+        return activities
+    except Exception as e:
+        print(f"Error al obtener actividades: {e}")
+        return []
+    finally:
+        db.close()
 
 # ==========================================
-# ESCRITURA (CREATE / UPDATE)
+# ESCRITURA (CREATE)
 # ==========================================
 
-def create_activity(descripcion: str, categoria_id: int, dept_id: int, user_id: int, prioridad: int = 1, estado: int = 0):
-    with get_db_context() as db:
-        try:
-            # Lógica solicitada:
-            # - Tipo siempre 0 (Genérica)
-            # - Hora inicio = Ahora
-            
-            tipo = 0
-            horainicio = datetime.now()
-            
-            # Si se crea ya completada, la hora de cierre es la misma que la de inicio
-            horacierre = horainicio if estado == 1 else None
-            
-            new_activity = Actividad(
-                descripcion=descripcion,
-                horainicio=horainicio,
-                horacierre=horacierre,
-                estado=estado,
-                tipo=tipo,
-                prioridad=prioridad,
-                usuario_id=user_id,
-                categoria_id=categoria_id,
-                departamento_id=dept_id,
-                proyecto_id=None, # Tipo 0 no lleva proyecto
-                status=1
-            )
-            
-            db.add(new_activity)
-            db.commit()
-            
-            return {"status": "success", "message": "Actividad registrada correctamente."}
-            
-        except Exception as e:
-            db.rollback()
-            return {"status": "error", "message": f"Error en BD: {str(e)}"}
+def create_activity(user_id: int, password_attempt: str, category_id: int, details: str, status_str: str):
+    db: Session = next(get_db())
+    try:
+        # 1. Validar Usuario y Contraseña
+        user = db.query(Usuario).options(joinedload(Usuario.password)).filter(Usuario.id == user_id).first()
+        if not user:
+            return {"status": "error", "message": "Usuario no encontrado."}
+        
+        # Verificar password
+        if not bcrypt.checkpw(password_attempt.encode('utf-8'), user.password.hash.encode('utf-8')):
+            return {"status": "error", "message": "Contraseña incorrecta."}
 
-def update_activity(activity_id: int, descripcion: str, categoria_id: int, estado: int, prioridad: int = 1):
-    with get_db_context() as db:
-        try:
-            activity = db.query(Actividad).filter(Actividad.id == activity_id).first()
-            if not activity: return {"status": "error", "message": "Actividad no encontrada"}
-            
-            # Actualizamos datos básicos
-            activity.descripcion = descripcion
-            activity.categoria_id = categoria_id
-            activity.prioridad = prioridad
-            
-            # Lógica de Fechas según Estado
-            # Si cambia A COMPLETADO (1) y antes no lo estaba -> Ponemos fecha cierre
-            if estado == 1 and activity.estado != 1:
-                activity.horacierre = datetime.now()
-                
-            # Si cambia A PENDIENTE (0) y antes estaba completo -> Borramos fecha cierre
-            elif estado == 0 and activity.estado == 1:
-                activity.horacierre = None
-                
-            activity.estado = estado
-            
-            db.commit()
-            return {"status": "success", "message": "Actividad modificada correctamente."}
-        except Exception as e:
-            db.rollback()
-            return {"status": "error", "message": str(e)}
+        # 2. Configurar Fechas y Estado
+        now = datetime.now()
+        horainicio = now
+        horacierre = None
+        
+        # Mapear estado string a int (según convención, asumo 0=Pendiente, 1=Completada por ahora, o usar el string si el modelo lo permite, pero el modelo dice Integer)
+        # Revisando models.py: estado = Column(Integer, default=0)
+        # Asumiremos: 0 = Pendiente, 1 = Completada
+        estado_int = 1 if status_str == "Completada" else 0
+        
+        if estado_int == 1:
+            horacierre = now
 
-def delete_activity_logical(activity_id: int):
-    with get_db_context() as db:
-        try:
-            activity = db.query(Actividad).filter(Actividad.id == activity_id).first()
-            if not activity: return {"status": "error", "message": "No encontrada"}
-            
-            activity.status = 0
-            db.commit()
-            
-            return {"status": "success", "message": "Actividad eliminada correctamente."}
-        except Exception as e:
-            db.rollback()
-            return {"status": "error", "message": str(e)}
+        # 3. Datos adicionales (Departamento, Proyecto)
+        # La actividad se liga al departamento del usuario? O se selecciona?
+        # El prompt no especifica, pero models.py requiere departamento_id.
+        # Asumiremos que es el departamento del usuario.
+        dept_id = user.departamento_id
+        
+        # Proyecto? models.py permite null. Lo dejamos null por ahora si no se pide.
+        proyecto_id = None
+
+        # 4. Crear Actividad
+        new_activity = Actividad(
+            descripcion=details,
+            horainicio=horainicio,
+            horacierre=horacierre,
+            estado=estado_int,
+            tipo=1, # Tipo dummy por ahora, models requiere int
+            usuario_id=user.id,
+            categoria_id=category_id,
+            departamento_id=dept_id,
+            proyecto_id=proyecto_id,
+            status=1
+        )
+        
+        db.add(new_activity)
+        db.commit()
+        
+        return {"status": "success", "message": "Actividad registrada correctamente."}
+
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": f"Error en BD: {str(e)}"}
+    finally:
+        db.close()
+
+# ==========================================
+# ACTUALIZACIÓN (UPDATE)
+# ==========================================
+
+def update_activity_status(activity_id: int, new_status_str: str):
+    db: Session = next(get_db())
+    try:
+        activity = db.query(Actividad).filter(Actividad.id == activity_id).first()
+        if not activity:
+            return {"status": "error", "message": "Actividad no encontrada."}
+
+        estado_int = 1 if new_status_str == "Completada" else 0
+        
+        # Si cambia a completada y no tenía fecha de cierre, se la ponemos
+        if estado_int == 1 and activity.estado != 1:
+            activity.horacierre = datetime.now()
+        
+        # Si cambia a pendiente, quitamos la fecha de cierre? 
+        # El prompt dice: "si se selecciona como completado se registra la misma hora... no se registra hora de cierre hasta que se modifique o se de marcar como completado"
+        # Si vuelvo a pendiente, lógicamente debería borrar la fecha de cierre o dejarla?
+        # "no se registra hora de cierre hasta que se modifique o se de marcar como completado"
+        # Asumiré que si vuelve a pendiente, se limpia la fecha de cierre para ser consistente.
+        if estado_int == 0:
+            activity.horacierre = None
+
+        activity.estado = estado_int
+        db.commit()
+        return {"status": "success", "message": "Estado actualizado."}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
+
+def update_activity(activity_id: int, category_id: int, details: str, status_str: str):
+    db: Session = next(get_db())
+    try:
+        activity = db.query(Actividad).filter(Actividad.id == activity_id).first()
+        if not activity:
+            return {"status": "error", "message": "Actividad no encontrada."}
+
+        estado_int = 1 if status_str == "Completada" else 0
+        
+        # Actualizar cierre si cambia a completada
+        if estado_int == 1 and activity.estado != 1:
+            activity.horacierre = datetime.now()
+        elif estado_int == 0:
+            activity.horacierre = None
+
+        activity.categoria_id = category_id
+        activity.descripcion = details
+        activity.estado = estado_int
+        
+        db.commit()
+        return {"status": "success", "message": "Actividad actualizada."}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
+
+# ==========================================
+# ELIMINACIÓN (DELETE)
+# ==========================================
+
+def delete_activity(activity_id: int):
+    db: Session = next(get_db())
+    try:
+        activity = db.query(Actividad).filter(Actividad.id == activity_id).first()
+        if not activity:
+            return {"status": "error", "message": "Actividad no encontrada."}
+        
+        activity.status = 0 # Borrado lógico
+        db.commit()
+        return {"status": "success", "message": "Actividad eliminada."}
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()

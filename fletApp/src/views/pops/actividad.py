@@ -1,47 +1,66 @@
 import flet as ft
 import views.styles as styles
+from controllers.usuarios_controller import get_all_users
+from controllers.actividades_controller import create_activity, update_activity
+from controllers.categorias_controller import get_all_categories
+from views.pops.mensaje import Aviso
 
 class ActivityForm(ft.AlertDialog):
-    def __init__(self, page: ft.Page, activity_data=None):
+    def __init__(self, page: ft.Page, activity_data=None, on_success=None):
         super().__init__()
         self.page = page
-        self.activity_data = activity_data  # Si es None = Crear, Si tiene datos = Modificar
+        self.activity_data = activity_data
+        self.on_success = on_success
         
-        # Configuración básica del Dialog
         self.modal = True
         self.bgcolor = ft.Colors.WHITE
         self.surface_tint_color = ft.Colors.WHITE
         self.shape = ft.RoundedRectangleBorder(radius=10)
         
-        # --- CAMPOS DEL FORMULARIO ---
+        # Cargar datos
+        self.users = get_all_users()
+        self.categories = get_all_categories() 
         
-        # 1. Título dinámico
-        title_text = "Modificar actividad" if activity_data else "Registrar nueva actividad"
-        sub_title = "Edite los detalles de la actividad." if activity_data else "Complete los detalles de la nueva actividad."
+        # --- CAMPOS ---
         
-        self.title = ft.Column(
-            [
-                ft.Text(title_text, size=20, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR),
-                ft.Text(sub_title, size=12, color=ft.Colors.GREY_500),
-            ],
-            spacing=5
-        )
-
-        # 2. Categoría (Dropdown)
-        self.category_dropdown = ft.Dropdown(
-            label="Categoría",
+        # 1. Usuario (Dropdown)
+        self.user_dropdown = ft.Dropdown(
+            label="Usuario",
             width=400,
-            options=[
-                ft.dropdown.Option("Reunión"),
-                ft.dropdown.Option("Llamada"),
-                ft.dropdown.Option("Desarrollo"),
-            ],
+            options=[ft.dropdown.Option(key=u.id, text=f"{u.nombre} {u.apellidos}") for u in self.users],
             border_color=ft.Colors.GREY_300,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR),
             label_style=ft.TextStyle(color=styles.TEXT_COLOR),
         )
 
-        # 3. Detalles (Campo de texto multilínea)
+        # 2. Contraseña (TextField)
+        self.password_field = ft.TextField(
+            label="Contraseña",
+            password=True,
+            can_reveal_password=True,
+            width=400,
+            border_color=ft.Colors.GREY_300,
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+        )
+
+        # 3. Categoría (Dropdown)
+        cat_options = []
+        if self.categories:
+             cat_options = [ft.dropdown.Option(key=c.id, text=c.nombre) for c in self.categories]
+        else:
+             cat_options = [ft.dropdown.Option(key=1, text="General")]
+
+        self.category_dropdown = ft.Dropdown(
+            label="Categoría",
+            width=400,
+            options=cat_options,
+            border_color=ft.Colors.GREY_300,
+            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+        )
+
+        # 4. Detalles
         self.details_field = ft.TextField(
             label="Detalles",
             multiline=True,
@@ -53,8 +72,7 @@ class ActivityForm(ft.AlertDialog):
             label_style=ft.TextStyle(color=styles.TEXT_COLOR),
         )
 
-        # 4. Estado (Switch con etiqueta dinámica)
-        # Etiqueta visual del estado (Badge)
+        # 5. Estado
         self.status_badge = ft.Container(
             padding=ft.padding.symmetric(horizontal=10, vertical=5),
             border_radius=ft.border_radius.all(15),
@@ -63,73 +81,68 @@ class ActivityForm(ft.AlertDialog):
         self.status_text = ft.Text(size=12, weight=ft.FontWeight.BOLD)
         self.status_badge.content = self.status_text
 
-        # Switch lógico
         self.status_switch = ft.Switch(
             on_change=self._on_status_change,
             active_color=styles.STATUS_GREEN_TXT,
         )
+        self._update_status_visuals(is_completed=False)
 
-        # Inicializamos el estado visual del switch
-        self._update_status_visuals(is_completed=False) # Por defecto Pendiente
-
-        # --- PRE-LLENADO DE DATOS (Si es modificar) ---
+        # --- PRE-LLENADO (Modificar) ---
         if activity_data:
-            self.category_dropdown.value = activity_data.get("categoria", "")
+            # Usuario
+            user_id = activity_data.get("usuario_id")
+            if user_id:
+                self.user_dropdown.value = user_id
+                self.user_dropdown.disabled = True # No permitir cambiar usuario
+                self.password_field.visible = False # No pedir password al modificar
+            
+            # Categoría
+            cat_id = activity_data.get("categoria")
+            if cat_id:
+                self.category_dropdown.value = cat_id
+            
+            # Detalles
             self.details_field.value = activity_data.get("detalles", "")
-            # Si el dato dice "Completada", activamos el switch
+            
+            # Estado
             is_completed = activity_data.get("estado") == "Completada"
             self.status_switch.value = is_completed
             self._update_status_visuals(is_completed)
 
-        # --- CONTENIDO DEL DIALOG ---
+        # --- CONTENIDO ---
+        title_text = "Modificar Actividad" if activity_data else "Registrar Actividad"
+        self.title = ft.Text(title_text, size=20, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR)
+        
+        form_controls = [
+            self.user_dropdown,
+            self.password_field if not activity_data else ft.Container(), # Ocultar visualmente si es modificar
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            self.category_dropdown,
+            self.details_field,
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            ft.Row([ft.Text("Estado:", color=styles.TEXT_COLOR), self.status_switch, self.status_badge]),
+        ]
+
         self.content = ft.Column(
-            [
-                self.category_dropdown,
-                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-                self.details_field,
-                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-                ft.Text("Estado", color=styles.TEXT_COLOR, weight=ft.FontWeight.W_500),
-                ft.Row(
-                    [
-                        self.status_switch,
-                        self.status_badge # Mostramos el badge al lado del switch
-                    ],
-                    alignment=ft.MainAxisAlignment.START,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER
-                )
-            ],
+            form_controls,
             width=400,
-            height=320, # Altura fija para evitar saltos
+            height=450,
             scroll=ft.ScrollMode.AUTO
         )
 
-        # --- BOTONES DE ACCIÓN ---
+        # --- BOTONES ---
         self.actions = [
-            ft.OutlinedButton(
-                "Cancelar",
-                style=ft.ButtonStyle(
-                    color=styles.TEXT_COLOR,
-                    shape=ft.RoundedRectangleBorder(radius=8),
-                    side=ft.BorderSide(width=1, color=ft.Colors.GREY_300)
-                ),
-                height=40,
-                on_click=self.close_dialog
-            ),
+            ft.OutlinedButton("Cancelar", on_click=self.close_dialog),
             ft.ElevatedButton(
-                "Registrar" if not activity_data else "Guardar Cambios",
-                style=ft.ButtonStyle(
-                    bgcolor=styles.PRIMARY_BLUE,
-                    color=ft.Colors.WHITE,
-                    shape=ft.RoundedRectangleBorder(radius=8),
-                ),
-                height=40,
-                on_click=lambda e: print("Guardando datos...") # Lógica futura
+                "Guardar" if activity_data else "Registrar",
+                bgcolor=styles.PRIMARY_BLUE,
+                color=ft.Colors.WHITE,
+                on_click=self._save_activity
             ),
         ]
         self.actions_alignment = ft.MainAxisAlignment.END
 
     def _update_status_visuals(self, is_completed):
-        """Actualiza el color y texto del badge según el estado"""
         if is_completed:
             self.status_text.value = "Completada"
             self.status_text.color = styles.STATUS_GREEN_TXT
@@ -138,11 +151,52 @@ class ActivityForm(ft.AlertDialog):
             self.status_text.value = "Pendiente"
             self.status_text.color = styles.STATUS_YELLOW_TXT
             self.status_badge.bgcolor = styles.STATUS_YELLOW_BG
-        
+
     def _on_status_change(self, e):
-        """Evento al mover el switch"""
         self._update_status_visuals(self.status_switch.value)
         self.status_badge.update()
+
+    def _save_activity(self, e):
+        status_str = "Completada" if self.status_switch.value else "Pendiente"
+
+        # Lógica UPDATE
+        if self.activity_data:
+            # Validaciones para update (menos estrictas con usuario/pass)
+            if not self.category_dropdown.value:
+                 Aviso(self.page, "Seleccione una categoría.", is_error=True).show()
+                 return
+            
+            res = update_activity(
+                activity_id=self.activity_data["id"],
+                category_id=int(self.category_dropdown.value),
+                details=self.details_field.value,
+                status_str=status_str
+            )
+        
+        # Lógica CREATE
+        else:
+            if not self.user_dropdown.value or not self.password_field.value:
+                Aviso(self.page, "Seleccione usuario e ingrese contraseña.", is_error=True).show()
+                return
+            if not self.category_dropdown.value:
+                 Aviso(self.page, "Seleccione una categoría.", is_error=True).show()
+                 return
+
+            res = create_activity(
+                user_id=int(self.user_dropdown.value),
+                password_attempt=self.password_field.value,
+                category_id=int(self.category_dropdown.value),
+                details=self.details_field.value,
+                status_str=status_str
+            )
+
+        if res["status"] == "success":
+            self.close_dialog(None)
+            Aviso(self.page, res["message"]).show()
+            if self.on_success:
+                self.on_success()
+        else:
+            Aviso(self.page, res["message"], is_error=True).show()
 
     def open_dialog(self):
         self.page.open(self)
