@@ -104,31 +104,27 @@ class ActividadesView(ft.Container):
                 ft.ElevatedButton(
                     "Registrar actividad",
                     icon=ft.Icons.ADD_CIRCLE_OUTLINE,
-                    bgcolor=styles.PRIMARY_BLUE,
+                    bgcolor=styles.BTN_PRIMARY_BG,
                     color=ft.Colors.WHITE,
                     style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
                     height=45,
                     on_click=self._open_register_modal
                 ),
-                ft.OutlinedButton(
+                ft.ElevatedButton(
                     "Marcar como completado",
                     icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
-                    style=ft.ButtonStyle(
-                        color=styles.TEXT_COLOR,
-                        shape=ft.RoundedRectangleBorder(radius=8),
-                        side=ft.BorderSide(width=1, color=ft.Colors.GREY_300)
-                    ),
+                    bgcolor=styles.BTN_COMPLETE_BG,
+                    color=styles.BTN_TEXT_WHITE,
+                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
                     height=45,
                     on_click=self._mark_completed
                 ),
-                ft.OutlinedButton(
+                ft.ElevatedButton(
                     "Modificar",
                     icon=ft.Icons.EDIT_OUTLINED,
-                     style=ft.ButtonStyle(
-                        color=styles.TEXT_COLOR,
-                        shape=ft.RoundedRectangleBorder(radius=8),
-                        side=ft.BorderSide(width=1, color=ft.Colors.GREY_300)
-                    ),
+                    bgcolor=styles.BTN_MODIFY_BG,
+                    color=styles.BTN_TEXT_WHITE,
+                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
                     height=45,
                     on_click=self._open_modify_modal
                 ),

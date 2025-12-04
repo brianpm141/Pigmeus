@@ -102,7 +102,7 @@ class UsersView(ft.Container):
                 ft.ElevatedButton(
                     "Crear Usuario",
                     icon=ft.Icons.ADD_CIRCLE_OUTLINE,
-                    bgcolor=styles.PRIMARY_BLUE,
+                    bgcolor=styles.BTN_PRIMARY_BG,
                     color=ft.Colors.WHITE,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
@@ -111,26 +111,24 @@ class UsersView(ft.Container):
                     on_click=self._open_create_modal,
                     height=45
                 ),
-                ft.OutlinedButton(
+                ft.ElevatedButton(
                     "Modificar Usuario",
                     icon=ft.Icons.EDIT_OUTLINED,
+                    bgcolor=styles.BTN_MODIFY_BG,
+                    color=styles.BTN_TEXT_WHITE,
                     style=ft.ButtonStyle(
-                        color=styles.TEXT_COLOR,
                         shape=ft.RoundedRectangleBorder(radius=8),
-                        side=ft.BorderSide(width=1, color=ft.Colors.GREY_300),
-                        overlay_color=ft.Colors.GREY_100,
                     ),
                     on_click=self._open_modify_modal,
                     height=45
                 ),
-                ft.OutlinedButton(
+                ft.ElevatedButton(
                     "Eliminar Usuario",
                     icon=ft.Icons.DELETE_OUTLINE,
+                    bgcolor=styles.BTN_DELETE_BG,
+                    color=styles.BTN_TEXT_WHITE,
                     style=ft.ButtonStyle(
-                        color=ft.Colors.RED_500,
                         shape=ft.RoundedRectangleBorder(radius=8),
-                        side=ft.BorderSide(width=1, color=ft.Colors.RED_200),
-                        overlay_color=ft.Colors.RED_50,
                     ),
                      on_click=self._delete_handler,
                      height=45
