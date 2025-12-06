@@ -1,0 +1,49 @@
+Estamos construyendo un sistema de gestión de proyectos y actividades departamentales. La arquitectura se centra en la seguridad por departamento: un usuario solo debe poder interactuar con datos (categorías, proyectos, actividades) que pertenezcan a su mismo departamento.
+
+Cambios Recientes y Estructura Actual (IMPORTANTE): Se ha refactorizado el modelo para eliminar redundancias y mejorar la integridad de los datos.
+
+    Manejo de Tiempos:
+
+        Todos los campos de fecha/hora (created_at, fecha_est, horainicio, etc.) usan TIMESTAMPTZ (Timezone aware) en PostgreSQL y DateTime(timezone=True) en SQLAlchemy.
+
+    Tabla actividades (Normalización):
+
+        Cambio Crítico: Se eliminó el campo departamento_id de esta tabla para evitar inconsistencias.
+
+        Lógica: La relación es Actividad -> Usuario -> Departamento.
+
+        Regla: Para saber de qué departamento es una actividad, se debe consultar el departamento del usuario_id asociado.
+
+    Tabla usuarios (Roles y Seguridad):
+
+        Se implementó un ENUM para roles (UserRole): "Básico", "Gerente", "Administrador".
+
+        Campos obligatorios nuevos: matricula (único) y username (único).
+
+        El campo departamento_id es obligatorio.
+
+    Tabla proyectos:
+
+        El campo nombre ahora es NOT NULL.
+
+        El responsable_id es opcional (puede ser null), pero el departamento_id es obligatorio.
+
+Reglas de Negocio para Consultas (Queries):
+
+    Filtrado: Nunca asumas que puedes filtrar actividades directamente por departamento. Debes hacer JOIN con la tabla usuarios.
+
+    Integridad: Al crear una actividad vinculada a un proyecto o categoria, el sistema debe validar previamente que el usuario, el proyecto y la categoria pertenezcan al mismo departamento.
+
+Resumen de Tablas:
+
+    passwords: 1:1 con Usuarios.
+
+    usuarios: Tabla central para autenticación y filtrado departamental.
+
+    departamentos: Contenedor principal de la lógica de negocio.
+
+    categorias: Clasificadores pertenecientes a un departamento.
+
+    proyectos: Contenedores de trabajo pertenecientes a un departamento.
+
+    actividades: Unidad mínima de trabajo, vinculada a un Usuario (y opcionalmente a Proyecto/Categoría).

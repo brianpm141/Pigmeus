@@ -14,7 +14,6 @@ def get_activities():
         activities = db.query(Actividad).options(
             joinedload(Actividad.usuario_rel),
             joinedload(Actividad.categoria_rel),
-            joinedload(Actividad.departamento_rel),
             joinedload(Actividad.proyecto_rel)
         ).filter(
             Actividad.status == 1
@@ -55,12 +54,7 @@ def create_activity(user_id: int, password_attempt: str, category_id: int, detai
         if estado_int == 1:
             horacierre = now
 
-        # 3. Datos adicionales (Departamento, Proyecto)
-        # La actividad se liga al departamento del usuario? O se selecciona?
-        # El prompt no especifica, pero models.py requiere departamento_id.
-        # Asumiremos que es el departamento del usuario.
-        dept_id = user.departamento_id
-        
+        # 3. Datos adicionales (Proyecto)
         # Proyecto? models.py permite null. Lo dejamos null por ahora si no se pide.
         proyecto_id = None
 
@@ -73,7 +67,6 @@ def create_activity(user_id: int, password_attempt: str, category_id: int, detai
             tipo=1, # Tipo dummy por ahora, models requiere int
             usuario_id=user.id,
             categoria_id=category_id,
-            departamento_id=dept_id,
             proyecto_id=proyecto_id,
             status=1
         )

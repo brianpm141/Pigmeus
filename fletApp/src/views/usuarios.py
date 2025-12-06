@@ -51,14 +51,17 @@ class UsersView(ft.Container):
 
         if selected_user:
             # Crear diccionario compatible con el formulario
+            # Aseguramos obtener el valor string del Enum
+            role_val = selected_user.role.value if hasattr(selected_user.role, 'value') else selected_user.role
+            
             user_dict = {
                 "id": selected_user.id,
-                "user": selected_user.user, # Username
+                "user": selected_user.username, # Username
                 "nombre": selected_user.nombre,
                 "apellidos": selected_user.apellidos,
                 "matricula": selected_user.matricula, # Si usaste matricula en el modelo
                 "departamento_id": selected_user.departamento_id,
-                "role": selected_user.role # Ahora es string directo
+                "role": role_val
             }
             
             form = UserForm(e.page, user_data=user_dict, on_success=self.refresh_data)
@@ -155,6 +158,9 @@ class UsersView(ft.Container):
                 depto_nombre = user.departamento.nombre if user.departamento else "Sin Asignar"
                 
                 is_row_selected = (user.id == self.selected_id)
+                
+                # Obtener valor string del rol
+                role_str = user.role.value if hasattr(user.role, 'value') else str(user.role)
 
                 rows.append(
                     ft.DataRow(
@@ -162,10 +168,10 @@ class UsersView(ft.Container):
                         on_select_changed=self._handle_select,
                         data=user.id, 
                         cells=[
-                            ft.DataCell(ft.Text(user.user, weight=ft.FontWeight.W_500, color=styles.TEXT_COLOR)),
+                            ft.DataCell(ft.Text(user.username, weight=ft.FontWeight.W_500, color=styles.TEXT_COLOR)),
                             ft.DataCell(ft.Text(nombre_completo, color=styles.TEXT_COLOR)),
                             ft.DataCell(ft.Text(depto_nombre, color=styles.TEXT_COLOR)),
-                            ft.DataCell(ft.Text(user.role, color=styles.TEXT_COLOR)), # Rol directo
+                            ft.DataCell(ft.Text(role_str, color=styles.TEXT_COLOR)), # Rol corregido
                         ],
                     )
                 )

@@ -37,7 +37,8 @@ class UserForm(ft.AlertDialog):
             text_style=ft.TextStyle(color=styles.TEXT_COLOR),
             label_style=ft.TextStyle(color=styles.TEXT_COLOR),
             prefix_icon=ft.Icons.PERSON_OUTLINE,
-            expand=True # Para que ocupe espacio en la fila
+            expand=True,
+            on_change=self._clear_error
         )
 
         self.password_field = ft.TextField(
@@ -48,7 +49,8 @@ class UserForm(ft.AlertDialog):
             text_style=ft.TextStyle(color=styles.TEXT_COLOR),
             label_style=ft.TextStyle(color=styles.TEXT_COLOR),
             prefix_icon=ft.Icons.LOCK_OUTLINE,
-            expand=True
+            expand=True,
+            on_change=self._clear_error
         )
 
         self.confirm_pass_field = ft.TextField(
@@ -59,32 +61,37 @@ class UserForm(ft.AlertDialog):
             text_style=ft.TextStyle(color=styles.TEXT_COLOR),
             label_style=ft.TextStyle(color=styles.TEXT_COLOR),
             prefix_icon=ft.Icons.LOCK_RESET,
-            expand=True
+            expand=True,
+            on_change=self._clear_error
         )
 
         # --- Datos Personales ---
         self.name_field = ft.TextField(
             label="Nombre(s)", border_color=ft.Colors.GREY_300,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            expand=True
+            expand=True,
+            on_change=self._clear_error
         )
 
         self.lastname_field = ft.TextField(
             label="Apellidos", border_color=ft.Colors.GREY_300,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            expand=True
+            expand=True,
+            on_change=self._clear_error
         )
 
         self.id_field = ft.TextField(
             label="Matrícula / ID", border_color=ft.Colors.GREY_300,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            expand=True
+            expand=True,
+            on_change=self._clear_error
         )
 
         self.dept_dropdown = ft.Dropdown(
             label="Departamento", border_color=ft.Colors.GREY_300,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            expand=True
+            expand=True,
+            on_change=self._clear_error
         )
         
         self.role_dropdown = ft.Dropdown(
@@ -96,7 +103,8 @@ class UserForm(ft.AlertDialog):
             ],
             text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
             value="Básico",
-            expand=True
+            expand=True,
+            on_change=self._clear_error
         )
 
         # Cargar departamentos desde la BD
@@ -112,7 +120,7 @@ class UserForm(ft.AlertDialog):
             self.username_field.disabled = True # No se puede cambiar el usuario
             self.name_field.value = user_data.get("nombre")
             self.lastname_field.value = user_data.get("apellidos")
-            self.id_field.value = user_data.get("user") # Asumiendo que user y matricula son lo mismo o similar
+            self.id_field.value = user_data.get("matricula") # Asumiendo que user y matricula son lo mismo o similar
             self.role_dropdown.value = self._get_role_string(user_data.get("role"))
             
             # Buscamos el ID del depto para seleccionarlo
@@ -167,6 +175,11 @@ class UserForm(ft.AlertDialog):
             return {1: "Básico", 2: "Gerente", 3: "Administrador"}.get(role_val, "Básico")
         return role_val
 
+    def _clear_error(self, e):
+        if e.control.error_text:
+            e.control.error_text = None
+            e.control.update()
+
     def _save_data(self, e):
         # 1. Recolección
         user = self.username_field.value
@@ -179,19 +192,47 @@ class UserForm(ft.AlertDialog):
         depto_val = self.dept_dropdown.value
 
         # 2. Validaciones Generales
-        if not all([user, nombre, apellidos, matricula, rol, depto_val]):
-            self._show_error_aviso("Todos los campos son obligatorios.")
+        has_error = False
+        
+        if not user:
+            self.username_field.error_text = "Requerido"
+            has_error = True
+        
+        if not nombre:
+            self.name_field.error_text = "Requerido"
+            has_error = True
+            
+        if not apellidos:
+            self.lastname_field.error_text = "Requerido"
+            has_error = True
+            
+        if not matricula:
+            self.id_field.error_text = "Requerido"
+            has_error = True
+            
+        if not rol:
+            self.role_dropdown.error_text = "Requerido"
+            has_error = True
+            
+        if not depto_val:
+            self.dept_dropdown.error_text = "Requerido"
+            has_error = True
+            
+        if has_error:
+            self.page.update()
             return
 
         # 3. Validación de Contraseña (Solo Creación)
         if not self.user_data:
             if not pwd:
                 self.password_field.error_text = "Requerida"
-                self.password_field.update()
-                return
-            if pwd != pwd_confirm:
-                self.confirm_pass_field.error_text = "Las contraseñas no coinciden"
-                self.confirm_pass_field.update()
+                has_error = True
+            elif pwd != pwd_confirm:
+                self.confirm_pass_field.error_text = "No coinciden"
+                has_error = True
+                
+            if has_error:
+                self.page.update()
                 return
 
         # 4. Llamar al Controlador
@@ -229,8 +270,17 @@ class UserForm(ft.AlertDialog):
             aviso = Aviso(self.page, message=result["message"], is_error=False, on_dismiss=on_aviso_close)
             aviso.show()
         else:
-            # Usamos tu componente Aviso de error
-            self._show_error_aviso(result["message"])
+            # Si es error de duplicado, intentamos asignarlo al campo
+            msg = result["message"].lower()
+            if "usuario" in msg or "login" in msg:
+                self.username_field.error_text = result["message"]
+                self.username_field.update()
+            elif "matrícula" in msg:
+                self.id_field.error_text = result["message"]
+                self.id_field.update()
+            else:
+                # Usamos tu componente Aviso de error para otros casos
+                self._show_error_aviso(result["message"])
 
     def _show_error_aviso(self, msg):
         aviso = Aviso(self.page, message=msg, is_error=True)

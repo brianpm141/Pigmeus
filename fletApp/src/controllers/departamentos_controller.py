@@ -12,7 +12,6 @@ def get_all_departments():
     db: Session = next(get_db())
     try:
         depts = db.query(Departamento).options(
-            joinedload(Departamento.lider),
             joinedload(Departamento.usuarios)
         ).filter(
             Departamento.status == 1
@@ -25,23 +24,11 @@ def get_all_departments():
     finally:
         db.close()
 
-def get_potential_leaders():
-    """Obtiene usuarios activos para llenar el dropdown"""
-    db: Session = next(get_db())
-    try:
-        users = db.query(Usuario).filter(Usuario.status == 1).all()
-        return users
-    except Exception as e:
-        print(f"Error al obtener usuarios: {e}")
-        return []
-    finally:
-        db.close()
-
 # ==========================================
 # ESCRITURA (CREATE / UPDATE)
 # ==========================================
 
-def create_department(nombre: str, lider_id: int = None):
+def create_department(nombre: str):
     db: Session = next(get_db())
     try:
         nombre_limpio = nombre.strip()
@@ -51,13 +38,12 @@ def create_department(nombre: str, lider_id: int = None):
             if existing.status == 0:
                 existing.status = 1
                 existing.nombre = nombre_limpio
-                existing.lider_id = lider_id
                 db.commit()
                 return {"status": "success", "message": "Departamento reactivado exitosamente."}
             else:
                 return {"status": "error", "message": "Ya existe un departamento con ese nombre."}
 
-        new_dept = Departamento(nombre=nombre_limpio, lider_id=lider_id, status=1)
+        new_dept = Departamento(nombre=nombre_limpio, status=1)
         db.add(new_dept)
         db.commit()
         
@@ -70,7 +56,7 @@ def create_department(nombre: str, lider_id: int = None):
     finally:
         db.close()
 
-def update_department(dept_id: int, nombre: str, lider_id: int = None):
+def update_department(dept_id: int, nombre: str):
     db: Session = next(get_db())
     try:
         # ... (validaciones de duplicados igual que antes) ...
@@ -85,7 +71,6 @@ def update_department(dept_id: int, nombre: str, lider_id: int = None):
         if existing: return {"status": "error", "message": "El nombre ya existe"}
 
         dept.nombre = nombre_limpio
-        dept.lider_id = lider_id
         db.commit()
         
         # MENSAJE DE ÉXITO CLARO

@@ -16,7 +16,7 @@ class DepartmentForm(ft.AlertDialog):
         self.shape = ft.RoundedRectangleBorder(radius=10)
         
         title_text = "Modificar Departamento" if dept_data else "Crear Departamento"
-        sub_title = "Asigne un nombre y un encargado." if dept_data else "Ingrese los datos del nuevo departamento."
+        sub_title = "Asigne un nombre." if dept_data else "Ingrese los datos del nuevo departamento."
         
         self.title = ft.Column(
             [
@@ -40,29 +40,15 @@ class DepartmentForm(ft.AlertDialog):
             on_change=self._clear_error_on_type 
         )
 
-        # 2. Encargado
-        self.manager_dropdown = ft.Dropdown(
-            label="Encargado / Responsable",
-            width=400,
-            border_color=ft.Colors.GREY_300,
-            text_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-        )
-
-        self._load_users_into_dropdown()
-
         if dept_data:
             self.name_field.value = dept_data.get("nombre")
-            self.manager_dropdown.value = str(dept_data.get("lider_id")) if dept_data.get("lider_id") else "none"
 
         self.content = ft.Column(
             [
                 self.name_field,
-                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-                self.manager_dropdown,
             ],
             width=400,
-            height=180,
+            height=100,
             scroll=ft.ScrollMode.AUTO
         )
 
@@ -90,22 +76,6 @@ class DepartmentForm(ft.AlertDialog):
         ]
         self.actions_alignment = ft.MainAxisAlignment.END
 
-    def _load_users_into_dropdown(self):
-        users = controller.get_potential_leaders()
-        options = []
-        if not users:
-            options.append(ft.dropdown.Option(key="none", text="No hay usuarios para asignar"))
-            self.manager_dropdown.value = "none" 
-        else:
-            options.append(ft.dropdown.Option(key="none", text="-- Sin Encargado --"))
-            for u in users:
-                full_name = f"{u.nombre} {u.apellidos}"
-                options.append(ft.dropdown.Option(key=str(u.id), text=full_name))
-        
-        self.manager_dropdown.options = options
-        if self.manager_dropdown.page:
-            self.manager_dropdown.update()
-
     def _clear_error_on_type(self, e):
         """Si el usuario escribe, quitamos el rojo"""
         if self.name_field.error_text:
@@ -114,7 +84,6 @@ class DepartmentForm(ft.AlertDialog):
 
     def _save_data(self, e):
         nombre = self.name_field.value
-        lider_val = self.manager_dropdown.value
 
         # Validación Local
         if not nombre or nombre.strip() == "":
@@ -122,15 +91,13 @@ class DepartmentForm(ft.AlertDialog):
             self.name_field.update()
             return
 
-        lider_id = int(lider_val) if lider_val and lider_val != "none" else None
-
         # Llamar al controlador
         result = None
         if self.dept_data:
             dept_id = self.dept_data.get("id")
-            result = controller.update_department(dept_id, nombre, lider_id)
+            result = controller.update_department(dept_id, nombre)
         else:
-            result = controller.create_department(nombre, lider_id)
+            result = controller.create_department(nombre)
             
         # --- AQUI ES EL CAMBIO PRINCIPAL ---
         if result["status"] == "success":

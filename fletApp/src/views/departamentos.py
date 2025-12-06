@@ -58,8 +58,7 @@ class DepartmentsView(ft.Container):
             # Convertimos el objeto SQLAlchemy a un diccionario simple para el formulario
             dept_dict = {
                 "id": selected_dept.id,
-                "nombre": selected_dept.nombre,
-                "lider_id": selected_dept.lider_id
+                "nombre": selected_dept.nombre
             }
             
             form = DepartmentForm(e.page, dept_data=dept_dict, on_success=self.refresh_data)
@@ -172,7 +171,6 @@ class DepartmentsView(ft.Container):
         if departments_data and len(departments_data) > 0:
             rows = []
             for dept in departments_data:
-                nombre_lider = f"{dept.lider.nombre} {dept.lider.apellidos}" if dept.lider else "Sin Asignar"
                 # Solo contamos usuarios activos (status == 1)
                 active_users = [u for u in dept.usuarios if u.status == 1] if dept.usuarios else []
                 num_usuarios = len(active_users)
@@ -188,7 +186,6 @@ class DepartmentsView(ft.Container):
                         
                         cells=[
                             ft.DataCell(ft.Text(dept.nombre, weight=ft.FontWeight.W_500, color=styles.TEXT_COLOR)),
-                            ft.DataCell(ft.Text(nombre_lider, color=styles.TEXT_COLOR)),
                             ft.DataCell(ft.Text(str(num_usuarios), color=styles.TEXT_COLOR)),
                         ],
                     )
@@ -207,7 +204,6 @@ class DepartmentsView(ft.Container):
                     show_checkbox_column=False,
                     columns=[
                         ft.DataColumn(ft.Text("NOMBRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("ENCARGADO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
                         ft.DataColumn(ft.Text("USUARIOS", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
                     ],
                     rows=rows

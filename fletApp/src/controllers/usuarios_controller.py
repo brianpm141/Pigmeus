@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 from db.database import get_db
-from db.models import Usuario, Password, Departamento
+from db.models import Usuario, Password, Departamento, UserRole
 
 # ==========================================
 # LECTURA (READ)
@@ -36,7 +36,7 @@ def create_user(username: str, raw_password: str, nombre: str, apellidos: str, m
         # 1. Validaciones de Integridad (Duplicados)
         
         # A) Validar Username (Login)
-        if db.query(Usuario).filter(Usuario.user == username).first():
+        if db.query(Usuario).filter(Usuario.username == username).first():
             return {"status": "error", "message": "El nombre de usuario (Login) ya está ocupado."}
         
         # B) Validar Matrícula (ID Empleado)
@@ -59,14 +59,21 @@ def create_user(username: str, raw_password: str, nombre: str, apellidos: str, m
         db.flush() # Obtenemos ID
 
         # 4. Crear Usuario
-        # CORRECCIÓN: No mapeamos rol a int, lo guardamos como string directo
+        # Convertimos string a Enum si es necesario, aunque SQLAlchemy suele manejar strings si coinciden con los valores del Enum
+        # Pero para ser explícitos y seguros:
+        try:
+            role_enum = UserRole(role)
+        except ValueError:
+            # Si el string no coincide con ningún valor del Enum, fallback a Básico o error
+            role_enum = UserRole.BASICO
+
         new_user = Usuario(
-            user=username,
+            username=username, # Corregido: models.py usa 'username', no 'user'
             pass_id=new_pass.id,
             nombre=nombre,
             apellidos=apellidos,
             matricula=matricula,
-            role=role, 
+            role=role_enum, 
             departamento_id=dept_id,
             status=1
         )
@@ -109,7 +116,13 @@ def update_user(db_id: int, nombre: str, apellidos: str, matricula: str, role: s
         user.nombre = nombre
         user.apellidos = apellidos
         user.matricula = matricula
-        user.role = role # Guardamos string directo
+        
+        try:
+            role_enum = UserRole(role)
+        except ValueError:
+            role_enum = UserRole.BASICO
+            
+        user.role = role_enum
         user.departamento_id = dept_id
         
         db.commit()

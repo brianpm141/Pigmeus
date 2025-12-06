@@ -27,10 +27,11 @@ class ActivityForm(ft.AlertDialog):
         self.user_dropdown = ft.Dropdown(
             label="Usuario",
             width=400,
-            options=[ft.dropdown.Option(key=u.id, text=f"{u.nombre} {u.apellidos}") for u in self.users],
+            options=[ft.dropdown.Option(key=str(u.id), text=f"{u.nombre} {u.apellidos}") for u in self.users],
             border_color=ft.Colors.GREY_300,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR),
             label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            on_change=self._clear_error
         )
 
         # 2. Contraseña (TextField)
@@ -42,14 +43,15 @@ class ActivityForm(ft.AlertDialog):
             border_color=ft.Colors.GREY_300,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR),
             label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            on_change=self._clear_error
         )
 
         # 3. Categoría (Dropdown)
         cat_options = []
         if self.categories:
-             cat_options = [ft.dropdown.Option(key=c.id, text=c.nombre) for c in self.categories]
+             cat_options = [ft.dropdown.Option(key=str(c.id), text=c.nombre) for c in self.categories]
         else:
-             cat_options = [ft.dropdown.Option(key=1, text="General")]
+             cat_options = [ft.dropdown.Option(key="1", text="General")]
 
         self.category_dropdown = ft.Dropdown(
             label="Categoría",
@@ -58,6 +60,7 @@ class ActivityForm(ft.AlertDialog):
             border_color=ft.Colors.GREY_300,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR),
             label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            on_change=self._clear_error
         )
 
         # 4. Detalles
@@ -70,6 +73,7 @@ class ActivityForm(ft.AlertDialog):
             border_color=ft.Colors.GREY_300,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR),
             label_style=ft.TextStyle(color=styles.TEXT_COLOR),
+            on_change=self._clear_error
         )
 
         # 5. Estado
@@ -92,14 +96,14 @@ class ActivityForm(ft.AlertDialog):
             # Usuario
             user_id = activity_data.get("usuario_id")
             if user_id:
-                self.user_dropdown.value = user_id
+                self.user_dropdown.value = str(user_id)
                 self.user_dropdown.disabled = True # No permitir cambiar usuario
                 self.password_field.visible = False # No pedir password al modificar
             
             # Categoría
             cat_id = activity_data.get("categoria")
             if cat_id:
-                self.category_dropdown.value = cat_id
+                self.category_dropdown.value = str(cat_id)
             
             # Detalles
             self.details_field.value = activity_data.get("detalles", "")
@@ -156,15 +160,26 @@ class ActivityForm(ft.AlertDialog):
         self._update_status_visuals(self.status_switch.value)
         self.status_badge.update()
 
+    def _clear_error(self, e):
+        if e.control.error_text:
+            e.control.error_text = None
+            e.control.update()
+
     def _save_activity(self, e):
         status_str = "Completada" if self.status_switch.value else "Pendiente"
+        
+        has_error = False
+        
+        # Validaciones comunes
+        if not self.category_dropdown.value:
+            self.category_dropdown.error_text = "Requerido"
+            has_error = True
 
         # Lógica UPDATE
         if self.activity_data:
-            # Validaciones para update (menos estrictas con usuario/pass)
-            if not self.category_dropdown.value:
-                 Aviso(self.page, "Seleccione una categoría.", is_error=True).show()
-                 return
+            if has_error:
+                self.page.update()
+                return
             
             res = update_activity(
                 activity_id=self.activity_data["id"],
@@ -175,12 +190,17 @@ class ActivityForm(ft.AlertDialog):
         
         # Lógica CREATE
         else:
-            if not self.user_dropdown.value or not self.password_field.value:
-                Aviso(self.page, "Seleccione usuario e ingrese contraseña.", is_error=True).show()
+            if not self.user_dropdown.value:
+                self.user_dropdown.error_text = "Requerido"
+                has_error = True
+            
+            if not self.password_field.value:
+                self.password_field.error_text = "Requerida"
+                has_error = True
+                
+            if has_error:
+                self.page.update()
                 return
-            if not self.category_dropdown.value:
-                 Aviso(self.page, "Seleccione una categoría.", is_error=True).show()
-                 return
 
             res = create_activity(
                 user_id=int(self.user_dropdown.value),
@@ -196,7 +216,16 @@ class ActivityForm(ft.AlertDialog):
             if self.on_success:
                 self.on_success()
         else:
-            Aviso(self.page, res["message"], is_error=True).show()
+            # Manejo de errores específicos del controlador
+            msg = res["message"].lower()
+            if "contraseña" in msg:
+                self.password_field.error_text = res["message"]
+                self.password_field.update()
+            elif "usuario" in msg:
+                self.user_dropdown.error_text = res["message"]
+                self.user_dropdown.update()
+            else:
+                Aviso(self.page, res["message"], is_error=True).show()
 
     def open_dialog(self):
         self.page.open(self)

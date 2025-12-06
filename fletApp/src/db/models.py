@@ -1,7 +1,17 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Date, Text
+import enum
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from db.database import Base
+
+# ==========================================
+# 0. ENUMS
+# ==========================================
+# Definimos el Enum en Python para asegurar consistencia
+class UserRole(enum.Enum):
+    BASICO = "Básico"
+    GERENTE = "Gerente"
+    ADMIN = "Administrador"
 
 # ==========================================
 # 1. TABLA: PASSWORDS
@@ -25,26 +35,21 @@ class Departamento(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False, unique=True)
     
-    # Líder (Puede ser Null al inicio)
-    lider_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
-    
-    status = Column(Integer, default=1)
+    status = Column(Integer, default=1, comment="1=Activo, 0=Baja")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # --- RELACIONES ---
     
-    # 1. Quién es el líder (Relación con Usuario usando lider_id)
-    lider = relationship("Usuario", foreign_keys=[lider_id], back_populates="departamentos_liderados")
+    # 1. Empleados del depto (Inversa de Usuario.departamento)
+    usuarios = relationship("Usuario", back_populates="departamento")
     
-    # 2. Empleados del depto (Inversa de Usuario.departamento)
-    # Al usar back_populates, SQLAlchemy sabe automáticamente que debe usar 'departamento_id' 
-    # definido en la clase Usuario. No hace falta poner foreign_keys aquí.
-    usuarios = relationship("Usuario", foreign_keys="[Usuario.departamento_id]", back_populates="departamento")
-    
-    # Otras relaciones
+    # 2. Categorías del depto
     categorias = relationship("Categoria", back_populates="departamento_rel")
+    
+    # 3. Proyectos del depto
     proyectos = relationship("Proyecto", back_populates="departamento_rel")
-    actividades = relationship("Actividad", back_populates="departamento_rel")
+
+    # Nota: Ya NO hay relación directa con 'actividades' (se hace a través de usuarios)
 
 
 # ==========================================
@@ -54,17 +59,17 @@ class Usuario(Base):
     __tablename__ = "usuarios"
 
     id = Column(Integer, primary_key=True, index=True)
-    # Nombre de usuario para Login (ej. jtorres)
-    user = Column(String(50), unique=True, nullable=False) 
+    # Cambiado de 'user' a 'username' para coincidir con el diagrama
+    username = Column(String(30), unique=True, nullable=False) 
     pass_id = Column(Integer, ForeignKey("passwords.id"), nullable=False)
     
     nombre = Column(String(100), nullable=False)
     apellidos = Column(String(100), nullable=False)
-    
-    # ESTE ES EL CAMPO QUE FALTABA EN TU BD
     matricula = Column(String(50), unique=True, nullable=False) 
     
-    role = Column(String(50), default="Básico", nullable=False)
+    # USO DEL ENUM
+    role = Column(Enum(UserRole), default=UserRole.BASICO, nullable=False)
+    
     departamento_id = Column(Integer, ForeignKey("departamentos.id"), nullable=False)
     
     status = Column(Integer, default=1)
@@ -74,13 +79,13 @@ class Usuario(Base):
     
     password = relationship("Password", back_populates="usuario")
     
-    # 1. A qué depto pertenece (Usa departamento_id)
-    departamento = relationship("Departamento", foreign_keys=[departamento_id], back_populates="usuarios")
+    # Relación con Departamento
+    departamento = relationship("Departamento", back_populates="usuarios")
     
-    # 2. Qué deptos lidera (Inversa de Departamento.lider)
-    departamentos_liderados = relationship("Departamento", foreign_keys="[Departamento.lider_id]", back_populates="lider")
-    
+    # Proyectos donde es responsable
     proyectos_responsable = relationship("Proyecto", back_populates="responsable_rel")
+    
+    # Actividades que creó el usuario
     actividades = relationship("Actividad", back_populates="usuario_rel")
 
 
@@ -97,6 +102,7 @@ class Categoria(Base):
     status = Column(Integer, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # --- RELACIONES ---
     departamento_rel = relationship("Departamento", back_populates="categorias")
     actividades = relationship("Actividad", back_populates="categoria_rel")
 
@@ -108,15 +114,24 @@ class Proyecto(Base):
     __tablename__ = "proyectos"
 
     id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String(150))
-    estado = Column(Integer, default=0, nullable=False)
-    
-    respondable_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    # Agregado nullable=False
+    nombre = Column(String(100), nullable=False) 
+    estado = Column(Integer, default=0, nullable=False, comment="0=Pendiente, 1=Proceso, 2=Terminado")
+    descripcion = Column(String(180), nullable=True)
+
+    # Corregido typo: respondable_id -> responsable_id
+    responsable_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     departamento_id = Column(Integer, ForeignKey("departamentos.id"), nullable=False)
     
     status = Column(Integer, default=1)
+    
+    # Fechas agregadas según diagrama
+    fecha_est = Column(DateTime(timezone=True), nullable=True)
+    fecha_mov = Column(DateTime(timezone=True), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # --- RELACIONES ---
     responsable_rel = relationship("Usuario", back_populates="proyectos_responsable")
     departamento_rel = relationship("Departamento", back_populates="proyectos")
     actividades = relationship("Actividad", back_populates="proyecto_rel")
@@ -131,21 +146,26 @@ class Actividad(Base):
     id = Column(Integer, primary_key=True, index=True)
     descripcion = Column(String(255), nullable=False)
     
+    # DateTime(timezone=True) equivale a timestamptz en Postgres
     horainicio = Column(DateTime(timezone=True), nullable=False)
     horacierre = Column(DateTime(timezone=True), nullable=True)
     
-    estado = Column(Integer, default=0, nullable=False)
-    tipo = Column(Integer, nullable=False)
+    estado = Column(Integer, default=0, nullable=False, comment="0=Pendiente, 1=Completa")
+    tipo = Column(Integer, nullable=False, comment="0=General, 1=De Proyecto")
     
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=False)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id"), nullable=False)
+    
+    # ELIMINADO: departamento_id (Redundante, se obtiene via usuario_id)
+    
     proyecto_id = Column(Integer, ForeignKey("proyectos.id"), nullable=True)
     
     status = Column(Integer, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # --- RELACIONES ---
     usuario_rel = relationship("Usuario", back_populates="actividades")
     categoria_rel = relationship("Categoria", back_populates="actividades")
-    departamento_rel = relationship("Departamento", back_populates="actividades")
     proyecto_rel = relationship("Proyecto", back_populates="actividades")
+    
+    # ELIMINADO: departamento_rel
