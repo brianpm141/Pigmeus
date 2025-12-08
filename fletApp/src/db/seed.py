@@ -14,11 +14,18 @@ def seed_data():
         print("Inicializando datos de prueba (Seed)...")
 
         # 1. Departamentos
-        depts_data = ["Recursos Humanos", "Desarrollo", "Ventas", "Dirección"]
+        # Lista de tuplas (Nombre, Codigo)
+        depts_data = [
+            ("Recursos Humanos", 1234), 
+            ("Desarrollo", 1234), 
+            ("Ventas", 1234), 
+            ("Dirección", 1234),
+            ("Producción", 1234)
+        ]
         depts_objs = {}
         
-        for name in depts_data:
-            d = Departamento(nombre=name, status=1)
+        for name, code in depts_data:
+            d = Departamento(nombre=name, code=code, status=1)
             db.add(d)
             db.flush() # Para obtener ID
             depts_objs[name] = d

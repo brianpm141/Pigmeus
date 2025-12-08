@@ -17,14 +17,18 @@ class LoadingView(ft.Container):
             font_family="Poppins"
         )
 
+        self.logo_img = ft.Image(
+            src="img/logoName.png",
+            width=400,
+            height=400,
+            fit=ft.ImageFit.CONTAIN,
+            scale=0.8, # Start slightly smaller
+            animate_scale=ft.Animation(800, ft.AnimationCurve.ELASTIC_OUT)
+        )
+
         self.content = ft.Column(
             controls=[
-                ft.Image(
-                    src="img/pigmeus.png",
-                    width=200,
-                    height=200,
-                    fit=ft.ImageFit.CONTAIN,
-                ),
+                self.logo_img,
                 ft.Container(height=10), # Spacer
                 ft.ProgressRing(
                     color=styles.PRIMARY_BLUE, 
@@ -38,4 +42,14 @@ class LoadingView(ft.Container):
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=10,
         )
+
+    def did_mount(self):
+        # Auto-trigger pulse on mount logic if needed, 
+        # but since we use python sleep in main, this might be tricky.
+        # instead we can rely on main calling a method or just the initial state.
+        pass
+
+    def animate_in(self):
+        self.logo_img.scale = 1.0
+        self.logo_img.update()
 

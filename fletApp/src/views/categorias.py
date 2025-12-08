@@ -16,6 +16,8 @@ class CategoriesView(ft.Container):
 
         self.content = ft.Column(
             controls=[
+                self.header,
+                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 self.toolbar,
                 ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 self.data_container
@@ -115,10 +117,10 @@ class CategoriesView(ft.Container):
     # --- CONSTRUCCIÓN DE UI ---
 
     def _init_layout_components(self):
-        
+        # Header
+        self.header = ft.Text("Categorías", size=24, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR)
+
         self.toolbar = ft.Row(
-            wrap=True,
-            spacing=15,
             controls=[
                 ft.ElevatedButton(
                     "Crear Categoría",
@@ -127,10 +129,10 @@ class CategoriesView(ft.Container):
                     color=ft.Colors.WHITE,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
-                        padding=ft.padding.symmetric(horizontal=20, vertical=12)
+                        padding=ft.padding.symmetric(vertical=20)
                     ),
                     on_click=self._open_create_modal,
-                    height=45
+                    expand=1
                 ),
                 ft.ElevatedButton(
                     "Modificar Categoría",
@@ -139,9 +141,10 @@ class CategoriesView(ft.Container):
                     color=styles.BTN_TEXT_WHITE,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20)
                     ),
                     on_click=self._open_modify_modal,
-                    height=45
+                    expand=1
                 ),
                 ft.ElevatedButton(
                     "Eliminar Categoría",
@@ -150,60 +153,74 @@ class CategoriesView(ft.Container):
                     color=styles.BTN_TEXT_WHITE,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20)
                     ),
-                     on_click=self._delete_handler,
-                     height=45
-                )
-            ]
+                    on_click=self._delete_handler,
+                    expand=1
+                ),
+                ft.Container(expand=1)
+            ],
+            spacing=15
         )
 
         self.data_container = ft.Container()
+
+    def _build_card(self, cat):
+        is_selected = (cat.id == self.selected_id)
+        
+        dept_nombre = cat.departamento_rel.nombre if cat.departamento_rel else "Sin Departamento"
+
+        return ft.Container(
+            content=ft.Row(
+                controls=[
+                    # Icon Area
+                    ft.Container(
+                        content=ft.Icon(ft.Icons.CATEGORY, color=ft.Colors.GREY_600),
+                        padding=15,
+                        bgcolor=ft.Colors.GREY_200,
+                        border_radius=10,
+                    ),
+                    # Info Area
+                    ft.Column(
+                        controls=[
+                            ft.Text(cat.nombre, weight=ft.FontWeight.BOLD, size=16, color=styles.TEXT_COLOR),
+                            ft.Text(f"Depto: {dept_nombre}", size=13, color=ft.Colors.GREY_500),
+                        ],
+                        spacing=5,
+                        alignment=ft.MainAxisAlignment.CENTER
+                    ),
+                ],
+                spacing=20,
+            ),
+            padding=ft.padding.all(15),
+            bgcolor=styles.CARD_BG,
+            border_radius=12,
+            shadow=styles.CARD_SHADOW if not is_selected else None,
+            border=ft.border.all(2, styles.PRIMARY_BLUE) if is_selected else None,
+            on_click=lambda e: self._on_card_click(cat.id),
+            ink=True
+        )
+
+    def _on_card_click(self, cat_id):
+        if self.selected_id == cat_id:
+            self.selected_id = None
+        else:
+            self.selected_id = cat_id
+        self.refresh_data()
 
     def refresh_data(self):
         categories = controller.get_all_categories()
 
         if categories and len(categories) > 0:
-            rows = []
+            cards = []
             for cat in categories:
-                dept_nombre = cat.departamento_rel.nombre if cat.departamento_rel else "Sin Departamento"
-                
-                is_row_selected = (cat.id == self.selected_id)
-
-                rows.append(
-                    ft.DataRow(
-                        selected=is_row_selected, 
-                        on_select_changed=self._handle_select, 
-                        data=cat.id, 
-                        
-                        cells=[
-                            ft.DataCell(ft.Text(cat.nombre, weight=ft.FontWeight.W_500, color=styles.TEXT_COLOR)),
-                            ft.DataCell(ft.Text(dept_nombre, color=styles.TEXT_COLOR)),
-                        ],
-                    )
-                )
+                cards.append(self._build_card(cat))
 
             self.data_container.alignment = ft.alignment.top_center
-            self.data_container.content = ft.Column(
-                controls=[
-                    ft.Container(
-                        bgcolor=ft.Colors.WHITE,
-                        border_radius=ft.border_radius.all(12),
-                        padding=ft.padding.all(5),
-                        content=ft.DataTable(
-                            width=float("inf"),
-                            heading_row_height=60,
-                            data_row_min_height=60,
-                            column_spacing=20,
-                            show_checkbox_column=False,
-                            columns=[
-                                ft.DataColumn(ft.Text("NOMBRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("DEPARTAMENTO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                            ],
-                            rows=rows
-                        )
-                    )
-                ],
-                scroll=ft.ScrollMode.AUTO,
+            self.data_container.content = ft.ListView(
+                controls=cards,
+                spacing=15,
+                padding=ft.padding.only(bottom=20)
             )
         else:
             self.data_container.alignment = ft.alignment.center

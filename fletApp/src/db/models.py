@@ -34,6 +34,7 @@ class Departamento(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False, unique=True)
+    code = Column(Integer, nullable=False)
     
     status = Column(Integer, default=1, comment="1=Activo, 0=Baja")
     created_at = Column(DateTime(timezone=True), server_default=func.now())

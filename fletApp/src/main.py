@@ -17,21 +17,45 @@ def main(page: ft.Page):
     page.title = "Pigmeus Teams"
     styles.apply_theme(page)
 
+    # --- Root Layout Architecture ---
+    # Usamos un AnimatedSwitcher en la raíz para transiciones suaves entre
+    # Pantalla de Carga -> Login -> App Principal
+    
+    root_switcher = ft.AnimatedSwitcher(
+        content=ft.Container(bgcolor=styles.BG_COLOR),
+        transition=ft.AnimatedSwitcherTransition.FADE,
+        duration=500,
+        reverse_duration=500,
+        switch_in_curve=ft.AnimationCurve.EASE_IN_OUT,
+        switch_out_curve=ft.AnimationCurve.EASE_IN_OUT,
+    )
+    
+    def set_root_content(content):
+        root_switcher.content = content
+        root_switcher.update()
+
+    page.add(
+        ft.Container(
+            content=root_switcher,
+            expand=True,
+            bgcolor=styles.BG_COLOR,
+            alignment=ft.alignment.center
+        )
+    )
+
     # Definir la interfaz principal (lógica de navegación)
     def load_main_interface():
         # --------------------Contenido ---------------------
-        # Usamos AnimatedSwitcher para transiciones suaves
-        switcher = ft.AnimatedSwitcher(
-            content=ft.Container(bgcolor=styles.BG_COLOR), # Contenido inicial (placeholder)
+        # Switcher interno para vistas de la App (Departamentos, Usuarios, etc.)
+        app_content_switcher = ft.AnimatedSwitcher(
+            content=ft.Container(bgcolor=styles.BG_COLOR), 
             transition=ft.AnimatedSwitcherTransition.FADE,
-            duration=300, # 300ms
+            duration=300, 
             reverse_duration=200,
-            switch_in_curve=ft.AnimationCurve.EASE_IN,
-            switch_out_curve=ft.AnimationCurve.EASE_OUT,
         )
 
         content_area = ft.Container(
-            content=switcher,
+            content=app_content_switcher,
             expand=True,
             bgcolor=styles.BG_COLOR,
             alignment=ft.alignment.center,
@@ -66,10 +90,8 @@ def main(page: ft.Page):
                     spacing=20
                 )
             
-            # Flet AnimatedSwitcher requiere que el control sea distinto o tenga key distinto
-            # Las vistas son instancias nuevas así que funcionará.
-            switcher.content = new_content
-            page.update()
+            app_content_switcher.content = new_content
+            app_content_switcher.update()
 
         #---------------------Sidebar---------------------
         sidebar = Sidebar(on_nav_change=navigate_to)
@@ -80,7 +102,11 @@ def main(page: ft.Page):
             spacing=0,
         )
 
-        page.add(layout)
+        set_root_content(layout)
+        
+        # Iniciar en Actividades por defecto
+        # Pequeño delay para que el layout se monte antes de cargar la vista
+        # (Aunque en Flet síncrono no es estrictamente necesario, ayuda a la fluidez visual)
         navigate_to("Actividades")
 
     # Función para cargar opciones de Login
@@ -88,44 +114,36 @@ def main(page: ft.Page):
         def on_guest_enter(selected_dept):
             if selected_dept:
                 print(f"Entrando como invitado: {selected_dept.nombre}")
-            else:
-                 print("Entrando como invitado (Sin departamento seleccionado)")
             
             # --- Transición Final (Cargando...) ---
-            # 1. Limpiar Login
-            page.clean()
+            # Mostrar "Cargando..." brevemente antes de entrar
+            loading_transition = LoadingView(message=f"Iniciando en {selected_dept.nombre}...")
+            set_root_content(loading_transition)
             
-            # 2. Mostrar "Cargando..."
-            loading = LoadingView(message="Cargando...")
-            page.add(loading)
+            # Trigger animation
+            loading_transition.animate_in()
+            
+            # Simular carga
             page.update()
-            
-            # 3. Esperar 1.5 seg
             time.sleep(1.5)
-            
-            # 4. Fade out
-            loading.opacity = 0
-            page.update()
-            time.sleep(0.5)
-            
-            # 5. Cargar App Principal
-            page.clean()
             load_main_interface()
 
         login_view = LoginOptionsView(on_app_start=on_guest_enter)
-        page.add(login_view)
-        page.update()
+        set_root_content(login_view)
 
     # Función para intentar conectar
     def try_connect_and_start(e=None):
-        page.clean()
-        
         # 1. Mostrar "Conectando..."
         loading = LoadingView(message="Conectando a la base de datos...")
-        page.add(loading)
+        set_root_content(loading)
+        
+        # Pequeño hack para dar tiempo a renderizar la vista de carga antes de bloquear con DB
         page.update()
+        time.sleep(0.5)
+        
+        loading.animate_in()
 
-        print("Iniciando intento de conexión...")
+        print("Iniciando intento de conexión...")  
         try:
             # UX Delay inicial 
             time.sleep(1.0) 
@@ -141,13 +159,11 @@ def main(page: ft.Page):
             # Seed de datos (si aplica)
             seed_data()
             
-            # --- Transición Final (Cargando...) ---
-            page.clean()
+            # --- Transición a Login ---
             load_login_interface()
             
         except Exception as ex:
             print(f"Error al iniciar la base de datos: {ex}")
-            page.remove(loading)
             
             error_view = ft.Column(
                 controls=[
@@ -162,8 +178,7 @@ def main(page: ft.Page):
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 alignment=ft.MainAxisAlignment.CENTER,
             )
-            page.add(ft.Container(content=error_view, alignment=ft.alignment.center, expand=True))
-            page.update()
+            set_root_content(ft.Container(content=error_view, alignment=ft.alignment.center))
 
     # Manejador de teclado global
     def handle_keyboard_event(e: ft.KeyboardEvent):

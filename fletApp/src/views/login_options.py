@@ -8,12 +8,14 @@ class LoginOptionsView(ft.Container):
         self.expand = True
         self.bgcolor = styles.BG_COLOR
         self.alignment = ft.alignment.center
-        self.on_app_start = on_app_start # Callback para iniciar la app (guest mode)
+        self.on_app_start = on_app_start 
+        
+        self.selected_dept = None # Store selected department for validation
 
         self.logo = ft.Image(
             src="img/pigmeus.png",
-            width=150,
-            height=150,
+            width=250,
+            height=250,
             fit=ft.ImageFit.CONTAIN,
         )
 
@@ -21,6 +23,7 @@ class LoginOptionsView(ft.Container):
         self.main_options = self._build_main_options()
         self.login_form = self._build_login_form()
         self.guest_selection = self._build_guest_selection()
+        self.code_form = self._build_code_form()
 
         # Contenedor dinámico
         self.current_content = ft.Container(content=self.main_options, animate_opacity=300)
@@ -78,7 +81,6 @@ class LoginOptionsView(ft.Container):
                     "Ingresar",
                     width=250,
                     style=ft.ButtonStyle(bgcolor=styles.PRIMARY_BLUE, color="white"),
-                    # Sin función por ahora
                 ),
                 ft.TextButton("Regresar", on_click=lambda _: self._switch_view(self.main_options))
             ],
@@ -87,7 +89,6 @@ class LoginOptionsView(ft.Container):
         )
 
     def _build_guest_selection(self):
-        # Este contenedor se llenará dinámicamente
         self.dept_list = ft.ListView(expand=False, height=200, spacing=10, padding=10)
         
         return ft.Column(
@@ -108,12 +109,42 @@ class LoginOptionsView(ft.Container):
             spacing=10
         )
 
+    def _build_code_form(self):
+        # Campos para el código
+        self.code_input = ft.TextField(
+            label="Código de Acceso",
+            password=True,
+            can_reveal_password=True,
+            width=250,
+            text_align=ft.TextAlign.CENTER,
+            border_radius=8,
+            keyboard_type=ft.KeyboardType.NUMBER
+        )
+        self.code_error = ft.Text("", color="red", size=12)
+
+        return ft.Column(
+            controls=[
+                ft.Text("Ingresa el código del departamento", size=16, weight=ft.FontWeight.W_500),
+                self.code_input,
+                self.code_error,
+                ft.Container(height=10),
+                ft.ElevatedButton(
+                    "Entrar",
+                    width=250,
+                    style=ft.ButtonStyle(bgcolor=styles.PRIMARY_BLUE, color="white"),
+                    on_click=self._verify_code
+                ),
+                ft.TextButton("Cancelar", on_click=lambda _: self._switch_view(self.guest_selection))
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=10
+        )
+
     def _switch_view(self, new_content):
         self.current_content.content = new_content
         self.update()
 
     def _load_departments_and_show(self, e):
-        # Cargar departamentos de la BD
         depts = get_all_departments()
         self.dept_list.controls.clear()
         
@@ -125,8 +156,35 @@ class LoginOptionsView(ft.Container):
                     ft.ListTile(
                         title=ft.Text(dept.nombre, weight=ft.FontWeight.W_500),
                         leading=ft.Icon(ft.Icons.BUSINESS, color=styles.PRIMARY_BLUE),
-                        on_click=lambda _, d=dept: self.on_app_start(d)
+                        on_click=lambda _, d=dept: self._prompt_for_code(d) # Modified handler
                     )
                 )
         
         self._switch_view(self.guest_selection)
+
+    def _prompt_for_code(self, dept):
+        self.selected_dept = dept
+        self.code_input.value = ""
+        self.code_error.value = ""
+        self._switch_view(self.code_form)
+
+    def _verify_code(self, e):
+        entered_code = self.code_input.value
+        
+        if not entered_code:
+            self.code_error.value = "Ingresa el código."
+            self.update()
+            return
+            
+        try:
+            # Validar
+            if str(self.selected_dept.code) == str(entered_code):
+                 # Correcto
+                 self.on_app_start(self.selected_dept)
+            else:
+                 self.code_error.value = "Código incorrecto."
+                 self.update()
+        except Exception as ex:
+            print(f"Error validating code: {ex}")
+            self.code_error.value = "Error al validar."
+            self.update()

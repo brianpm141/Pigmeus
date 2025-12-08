@@ -13,6 +13,7 @@ Table passwords {
 Table departamentos {
   id integer [primary key, increment]
   nombre varchar(100) [unique, not null]
+  code integer [not null]
   status integer [default: 1, note: "1=Activo, 0=Baja"]
   created_at timestamptz [default: `now()`]
 }

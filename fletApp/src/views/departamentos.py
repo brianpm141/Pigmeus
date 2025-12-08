@@ -16,6 +16,8 @@ class DepartmentsView(ft.Container):
 
         self.content = ft.Column(
             controls=[
+                self.header,
+                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 self.toolbar,
                 ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 self.data_container
@@ -124,10 +126,11 @@ class DepartmentsView(ft.Container):
     # --- CONSTRUCCIÓN DE UI ---
 
     def _init_layout_components(self):
-        
+        # Título
+        self.header = ft.Text("Departamentos", size=24, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR)
+
+        # Toolbar con botones expandidos
         self.toolbar = ft.Row(
-            wrap=True,
-            spacing=15,
             controls=[
                 ft.ElevatedButton(
                     "Crear Departamento",
@@ -136,10 +139,10 @@ class DepartmentsView(ft.Container):
                     color=ft.Colors.WHITE,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
-                        padding=ft.padding.symmetric(horizontal=20, vertical=12)
+                        padding=ft.padding.symmetric(vertical=20) # Más alto
                     ),
-                    on_click=self._open_create_modal, # Conectado a crear
-                    height=45
+                    on_click=self._open_create_modal,
+                    expand=1 # Ocupa 1/4 del ancho disponible (3 botones + 1 espacio)
                 ),
                 ft.ElevatedButton(
                     "Modificar Departamento",
@@ -148,9 +151,10 @@ class DepartmentsView(ft.Container):
                     color=styles.BTN_TEXT_WHITE,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20)
                     ),
-                    on_click=self._open_modify_modal, # Conectado a modificar
-                    height=45
+                    on_click=self._open_modify_modal, 
+                    expand=1
                 ),
                 ft.ElevatedButton(
                     "Eliminar Departamento",
@@ -159,64 +163,78 @@ class DepartmentsView(ft.Container):
                     color=styles.BTN_TEXT_WHITE,
                     style=ft.ButtonStyle(
                         shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20)
                     ),
-                     on_click=self._delete_handler, # Conectado a eliminar
-                     height=45
-                )
-            ]
+                     on_click=self._delete_handler, 
+                     expand=1
+                ),
+                # Espacio a la derecha
+                ft.Container(expand=1)
+            ],
+            spacing=15, # Espacio entre botones
         )
 
         self.data_container = ft.Container()
+
+    def _build_card(self, dept):
+        is_selected = (dept.id == self.selected_id)
+        
+        # Contar usuarios
+        active_users = [u for u in dept.usuarios if u.status == 1] if dept.usuarios else []
+        num_usuarios = len(active_users)
+        subtitle = f"{num_usuarios} Usuario{'s' if num_usuarios != 1 else ''}"
+
+        return ft.Container(
+            content=ft.Row(
+                controls=[
+                    # Icono
+                    ft.Container(
+                        content=ft.Icon(ft.Icons.CODE, color=ft.Colors.GREY_600), # Icono genérico o específico
+                        padding=15,
+                        bgcolor=ft.Colors.GREY_200,
+                        border_radius=10,
+                    ),
+                    # Textos
+                    ft.Column(
+                        controls=[
+                            ft.Text(dept.nombre, weight=ft.FontWeight.BOLD, size=16, color=styles.TEXT_COLOR),
+                            ft.Text(subtitle, size=13, color=ft.Colors.GREY_500),
+                        ],
+                        spacing=2,
+                        alignment=ft.MainAxisAlignment.CENTER
+                    ),
+                ],
+                spacing=20,
+            ),
+            padding=ft.padding.all(15),
+            bgcolor=styles.CARD_BG,
+            border_radius=12,
+            shadow=styles.CARD_SHADOW if not is_selected else None,
+            border=ft.border.all(2, styles.PRIMARY_BLUE) if is_selected else None,
+            on_click=lambda e: self._on_card_click(dept.id),
+            ink=True
+        )
+
+    def _on_card_click(self, dept_id):
+        if self.selected_id == dept_id:
+            self.selected_id = None
+        else:
+            self.selected_id = dept_id
+        self.refresh_data()
 
     def refresh_data(self):
         departments_data = controller.get_all_departments()
 
         if departments_data and len(departments_data) > 0:
-            rows = []
+            cards = []
             for dept in departments_data:
-                # Solo contamos usuarios activos (status == 1)
-                active_users = [u for u in dept.usuarios if u.status == 1] if dept.usuarios else []
-                num_usuarios = len(active_users)
-
-                # Determinamos si esta fila debe aparecer marcada
-                is_row_selected = (dept.id == self.selected_id)
-
-                rows.append(
-                    ft.DataRow(
-                        selected=is_row_selected, # Marca visualmente
-                        on_select_changed=self._handle_select, # Evento clic
-                        data=dept.id, # GUARDAMOS EL ID OCULTO EN LA FILA
-                        
-                        cells=[
-                            ft.DataCell(ft.Text(dept.nombre, weight=ft.FontWeight.W_500, color=styles.TEXT_COLOR)),
-                            ft.DataCell(ft.Text(str(num_usuarios), color=styles.TEXT_COLOR)),
-                        ],
-                    )
-                )
+                cards.append(self._build_card(dept))
 
             self.data_container.alignment = ft.alignment.top_center
-            self.data_container.content = ft.Column(
-                controls=[
-                    ft.Container(
-                        bgcolor=ft.Colors.WHITE,
-                        border_radius=ft.border_radius.all(12),
-                        padding=ft.padding.all(5),
-                        content=ft.DataTable(
-                            width=float("inf"),
-                            heading_row_height=60,
-                            data_row_min_height=60,
-                            column_spacing=20,
-                            # Habilitamos la columna de checkboxes nativa
-                            show_checkbox_column=False,
-                            columns=[
-                                ft.DataColumn(ft.Text("NOMBRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("USUARIOS", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                            ],
-                            rows=rows
-                        )
-                    )
-                ],
-                scroll=ft.ScrollMode.AUTO,
+            self.data_container.content = ft.ListView(
+                controls=cards,
+                spacing=15, # Espacio entre cards
+                padding=ft.padding.only(bottom=20)
             )
         else:
             self.data_container.alignment = ft.alignment.center

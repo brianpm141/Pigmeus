@@ -16,6 +16,8 @@ class ActividadesView(ft.Container):
 
         self.content = ft.Column(
             controls=[
+                self.header,
+                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 self.toolbar,
                 ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 self.data_container # Contenedor principal variable
@@ -106,38 +108,51 @@ class ActividadesView(ft.Container):
     # --- UI ---
 
     def _init_layout_components(self):
+        # Header
+        self.header = ft.Text("Actividades", size=24, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR)
+
         self.toolbar = ft.Row(
-            wrap=True,
-            spacing=15,
             controls=[
                 ft.ElevatedButton(
                     "Registrar actividad",
                     icon=ft.Icons.ADD_CIRCLE_OUTLINE,
                     bgcolor=styles.BTN_PRIMARY_BG,
                     color=ft.Colors.WHITE,
-                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                    height=45,
-                    on_click=self._open_register_modal
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20) # Más alto (taller)
+                    ),
+                    on_click=self._open_register_modal,
+                    expand=1
                 ),
                 ft.ElevatedButton(
                     "Marcar como completado",
                     icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
                     bgcolor=styles.BTN_COMPLETE_BG,
                     color=styles.BTN_TEXT_WHITE,
-                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                    height=45,
-                    on_click=self._mark_completed
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20)
+                    ),
+                    on_click=self._mark_completed,
+                    expand=1
                 ),
                 ft.ElevatedButton(
                     "Modificar",
                     icon=ft.Icons.EDIT_OUTLINED,
                     bgcolor=styles.BTN_MODIFY_BG,
                     color=styles.BTN_TEXT_WHITE,
-                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                    height=45,
-                    on_click=self._open_modify_modal
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20)
+                    ),
+                    on_click=self._open_modify_modal,
+                    expand=1
                 ),
-            ]
+                # Espacio libre a la derecha
+                ft.Container(expand=1) 
+            ],
+            spacing=15
         )
         
         self.data_container = ft.Container()

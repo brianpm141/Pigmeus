@@ -16,6 +16,8 @@ class ProjectsView(ft.Container):
 
         self.content = ft.Column(
             controls=[
+                self.header,
+                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 self.toolbar,
                 ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 self.data_container
@@ -111,104 +113,128 @@ class ProjectsView(ft.Container):
         )
 
     def _init_layout_components(self):
+        # Header
+        self.header = ft.Text("Proyectos", size=24, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR)
+
         self.toolbar = ft.Row(
-            wrap=True,
-            spacing=15,
             controls=[
                 ft.ElevatedButton(
                     "Crear Proyecto",
                     icon=ft.Icons.ADD_CIRCLE_OUTLINE,
                     bgcolor=styles.BTN_PRIMARY_BG,
                     color=styles.BTN_TEXT_WHITE,
-                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                    height=45,
-                    on_click=self._open_create_modal
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20)
+                    ),
+                    on_click=self._open_create_modal,
+                    expand=1
                 ),
                 ft.ElevatedButton(
                     "Modificar Proyecto",
                     icon=ft.Icons.EDIT_OUTLINED,
                     bgcolor=styles.BTN_MODIFY_BG,
                     color=styles.BTN_TEXT_WHITE,
-                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                    height=45,
-                    on_click=self._open_modify_modal
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20)
+                    ),
+                    on_click=self._open_modify_modal,
+                    expand=1
                 ),
                 ft.ElevatedButton(
                     "Eliminar Proyecto",
                     icon=ft.Icons.DELETE_OUTLINE,
                     bgcolor=styles.BTN_DELETE_BG,
                     color=styles.BTN_TEXT_WHITE,
-                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                    height=45,
-                    on_click=self._delete_handler
-                )
-            ]
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(vertical=20)
+                    ),
+                    on_click=self._delete_handler,
+                    expand=1
+                ),
+                ft.Container(expand=1)
+            ],
+            spacing=15
         )
         
         self.data_container = ft.Container()
+
+    def _build_card(self, proj):
+        is_selected = (proj.id == self.selected_id)
+        
+        # Fecha
+        last_update = proj.fecha_mov if proj.fecha_mov else proj.created_at
+        last_progress_text = last_update.strftime("%d/%m/%Y") if last_update else "N/A"
+        
+        return ft.Container(
+            content=ft.Row(
+                controls=[
+                    # Icon Area
+                    ft.Container(
+                        content=ft.Icon(ft.Icons.ROCKET_LAUNCH, color=ft.Colors.GREY_600),
+                        padding=15,
+                        bgcolor=ft.Colors.GREY_200,
+                        border_radius=10,
+                    ),
+                    # Info Area
+                    ft.Column(
+                        controls=[
+                            ft.Text(proj.nombre, weight=ft.FontWeight.BOLD, size=16, color=styles.TEXT_COLOR),
+                            ft.Row([
+                                self._build_status_badge(proj.estado),
+                                ft.Text(f"Act: {last_progress_text}", size=12, color=ft.Colors.GREY_400)
+                            ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+                        ],
+                        spacing=5,
+                        alignment=ft.MainAxisAlignment.CENTER
+                    ),
+                    ft.Container(expand=True), # Spacer
+                    # Actions Area
+                    ft.ElevatedButton(
+                        "Actividades",
+                        icon=ft.Icons.LIST_ALT,
+                        bgcolor=styles.PRIMARY_BLUE,
+                        color=ft.Colors.WHITE,
+                        style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
+                        height=35,
+                        data=proj.id,
+                        on_click=self._open_activities
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.START,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER
+            ),
+            padding=ft.padding.all(15),
+            bgcolor=styles.CARD_BG,
+            border_radius=12,
+            shadow=styles.CARD_SHADOW if not is_selected else None,
+            border=ft.border.all(2, styles.PRIMARY_BLUE) if is_selected else None,
+            on_click=lambda e: self._on_card_click(proj.id),
+            ink=True
+        )
+
+    def _on_card_click(self, proj_id):
+        if self.selected_id == proj_id:
+            self.selected_id = None
+        else:
+            self.selected_id = proj_id
+        self.refresh_data()
 
     def refresh_data(self):
         projects = controller.get_projects()
         
         if projects:
-            rows = []
+            cards = []
             for proj in projects:
-                is_selected = (proj.id == self.selected_id)
-                
-                # Logic for Last Progress / Completion Date
-                # Use fecha_mov if available, else created_at
-                last_update = proj.fecha_mov if proj.fecha_mov else proj.created_at
-                last_progress_text = last_update.strftime("%Y-%m-%d") if last_update else "Sin fecha"
-
-                rows.append(
-                    ft.DataRow(
-                        selected=is_selected,
-                        on_select_changed=self._handle_select,
-                        data=proj.id,
-                        cells=[
-                            ft.DataCell(ft.Text(proj.nombre, weight=ft.FontWeight.W_500)),
-                            ft.DataCell(self._build_status_badge(proj.estado)),
-                            ft.DataCell(ft.Text(last_progress_text)),
-                            ft.DataCell(
-                                ft.ElevatedButton(
-                                    "Actividades",
-                                    icon=ft.Icons.LIST_ALT,
-                                    bgcolor=styles.PRIMARY_BLUE, 
-                                    color=ft.Colors.WHITE,
-                                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=8)),
-                                    height=35,
-                                    data=proj.id,
-                                    on_click=self._open_activities
-                                )
-                            ),
-                        ],
-                    )
-                )
+                cards.append(self._build_card(proj))
 
             self.data_container.alignment = ft.alignment.top_center
-            self.data_container.content = ft.Column(
-                 controls=[
-                    ft.Container(
-                        bgcolor=ft.Colors.WHITE,
-                        border_radius=ft.border_radius.all(12),
-                        padding=ft.padding.all(5),
-                        content=ft.DataTable(
-                            width=float("inf"),
-                            heading_row_height=60,
-                            data_row_min_height=60,
-                            column_spacing=20,
-                            show_checkbox_column=False,
-                            columns=[
-                                ft.DataColumn(ft.Text("PROYECTO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("ESTADO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("ÚLTIMA ACTUALIZACIÓN", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("ACCIONES", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                            ],
-                            rows=rows
-                        )
-                    )
-                 ],
-                 scroll=ft.ScrollMode.AUTO,
+            self.data_container.content = ft.ListView(
+                controls=cards,
+                spacing=15,
+                padding=ft.padding.only(bottom=20)
             )
         else:
             self.data_container.alignment = ft.alignment.center
