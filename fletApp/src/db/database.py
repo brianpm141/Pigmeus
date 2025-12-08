@@ -31,3 +31,10 @@ def get_db_context():
 def init_db():
     import db.models 
     Base.metadata.create_all(bind=engine)
+
+def verify_connection():
+    try:
+        with engine.connect() as connection:
+            return True
+    except Exception as e:
+        raise e
