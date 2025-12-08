@@ -161,3 +161,7 @@ cython_debug/
 
 # Flet
 storage/
+
+
+# postgresql
+Docker/pg_data/
