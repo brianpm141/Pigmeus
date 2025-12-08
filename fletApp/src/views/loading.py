@@ -2,7 +2,7 @@ import flet as ft
 import views.styles as styles
 
 class LoadingView(ft.Container):
-    def __init__(self):
+    def __init__(self, message="Conectando a la base de datos..."):
         super().__init__()
         self.expand = True
         self.bgcolor = styles.BG_COLOR
@@ -10,7 +10,7 @@ class LoadingView(ft.Container):
         self.animate_opacity = 500  # 500ms fade animation
 
         self.msg = ft.Text(
-            "Conectando a la base de datos...",
+            message,
             size=16,
             color=styles.TEXT_COLOR,
             weight=ft.FontWeight.W_500,

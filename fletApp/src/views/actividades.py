@@ -10,11 +10,20 @@ class ActividadesView(ft.Container):
         super().__init__()
         self.expand = True
         self.padding = ft.padding.all(30)
+        
+        # Inicializar componentes (toolbar, data_container)
+        self._init_layout_components()
+
         self.content = ft.Column(
-            scroll=ft.ScrollMode.AUTO, 
-            controls=self._build_layout(),
+            controls=[
+                self.toolbar,
+                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+                self.data_container # Contenedor principal variable
+            ],
         )
         
+        self.data_container.expand = True # Que ocupe todo el espacio restante
+
         # Estado: ID seleccionado
         self.selected_id = None
         
@@ -96,7 +105,7 @@ class ActividadesView(ft.Container):
 
     # --- UI ---
 
-    def _build_layout(self):
+    def _init_layout_components(self):
         self.toolbar = ft.Row(
             wrap=True,
             spacing=15,
@@ -132,13 +141,6 @@ class ActividadesView(ft.Container):
         )
         
         self.data_container = ft.Container()
-
-        return [
-            self.toolbar,
-            ft.Divider(height=30, color=ft.Colors.TRANSPARENT),
-            self.data_container,
-            ft.Divider(height=50, color=ft.Colors.TRANSPARENT),
-        ]
 
     def refresh_data(self):
         activities = get_activities()
@@ -176,40 +178,45 @@ class ActividadesView(ft.Container):
                     )
                 )
 
-            self.data_container.content = ft.Container(
-                bgcolor=ft.Colors.WHITE,
-                border_radius=ft.border_radius.all(12),
-                padding=ft.padding.all(5),
-                content=ft.DataTable(
-                    width=float("inf"),
-                    heading_row_height=60,
-                    data_row_min_height=60,
-                    column_spacing=20,
-                    show_checkbox_column=False,
-                    columns=[
-                        ft.DataColumn(ft.Text("USUARIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("CATEGORÍA", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("DETALLES", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("ESTADO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("FECHA INICIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("HORA INICIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("FECHA CIERRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("HORA CIERRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                    ],
-                    rows=rows_data
-                )
+            self.data_container.alignment = ft.alignment.top_center
+            self.data_container.content = ft.Column(
+                controls=[
+                    ft.Container(
+                        bgcolor=ft.Colors.WHITE,
+                        border_radius=ft.border_radius.all(12),
+                        padding=ft.padding.all(5),
+                        content=ft.DataTable(
+                            width=float("inf"),
+                            heading_row_height=60,
+                            data_row_min_height=60,
+                            column_spacing=20,
+                            show_checkbox_column=False,
+                            columns=[
+                                ft.DataColumn(ft.Text("USUARIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                                ft.DataColumn(ft.Text("CATEGORÍA", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                                ft.DataColumn(ft.Text("DETALLES", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                                ft.DataColumn(ft.Text("ESTADO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                                ft.DataColumn(ft.Text("FECHA INICIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                                ft.DataColumn(ft.Text("HORA INICIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                                ft.DataColumn(ft.Text("FECHA CIERRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                                ft.DataColumn(ft.Text("HORA CIERRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                            ],
+                            rows=rows_data
+                        )
+                    )
+                ],
+                scroll=ft.ScrollMode.AUTO,
             )
         else:
-            self.data_container.content = ft.Container(
-                alignment=ft.alignment.center,
-                content=ft.Column(
-                    [
-                        ft.Icon(ft.Icons.INBOX_OUTLINED, size=60, color=ft.Colors.GREY_300),
-                        ft.Text("No hay actividades registradas.", color=ft.Colors.GREY_500, size=16)
-                    ],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=10
-                )
+            self.data_container.alignment = ft.alignment.center
+            self.data_container.content = ft.Column(
+                controls=[
+                    ft.Icon(ft.Icons.INBOX_OUTLINED, size=60, color=ft.Colors.GREY_300),
+                    ft.Text("No hay actividades registradas.", color=ft.Colors.GREY_500, size=16)
+                ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=10
             )
         if self.page:
             self.update()

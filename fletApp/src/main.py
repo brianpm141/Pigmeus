@@ -5,8 +5,11 @@ from views.sidebar import Sidebar
 from views.actividades import ActividadesView
 from views.departamentos import DepartmentsView
 from views.usuarios import UsersView
+from views.usuarios import UsersView
 from views.categorias import CategoriesView
 from views.loading import LoadingView
+from views.login_options import LoginOptionsView
+from db.seed import seed_data 
 
 from db.database import init_db, verify_connection
 
@@ -17,7 +20,18 @@ def main(page: ft.Page):
     # Definir la interfaz principal (lógica de navegación)
     def load_main_interface():
         # --------------------Contenido ---------------------
+        # Usamos AnimatedSwitcher para transiciones suaves
+        switcher = ft.AnimatedSwitcher(
+            content=ft.Container(bgcolor=styles.BG_COLOR), # Contenido inicial (placeholder)
+            transition=ft.AnimatedSwitcherTransition.FADE,
+            duration=300, # 300ms
+            reverse_duration=200,
+            switch_in_curve=ft.AnimationCurve.EASE_IN,
+            switch_out_curve=ft.AnimationCurve.EASE_OUT,
+        )
+
         content_area = ft.Container(
+            content=switcher,
             expand=True,
             bgcolor=styles.BG_COLOR,
             alignment=ft.alignment.center,
@@ -25,18 +39,18 @@ def main(page: ft.Page):
 
         #---------------------Navegacion---------------------
         def navigate_to(view_name):
-            content_area.content = None 
+            new_content = None
             
             if view_name == "Actividades":
-                content_area.content = ActividadesView()
+                new_content = ActividadesView()
             elif view_name == "Departamentos":
-                content_area.content = DepartmentsView()
+                new_content = DepartmentsView()
             elif view_name == "Usuarios":
-                content_area.content = UsersView()
+                new_content = UsersView()
             elif view_name == "Categorias":
-                content_area.content = CategoriesView()
+                new_content = CategoriesView()
             else:
-                content_area.content = ft.Column(
+                new_content = ft.Column(
                     controls=[
                         ft.Icon(ft.Icons.DASHBOARD_CUSTOMIZE_OUTLINED, size=80, color=styles.PRIMARY_BLUE),
                         ft.Text(
@@ -51,6 +65,10 @@ def main(page: ft.Page):
                     alignment=ft.MainAxisAlignment.CENTER,
                     spacing=20
                 )
+            
+            # Flet AnimatedSwitcher requiere que el control sea distinto o tenga key distinto
+            # Las vistas son instancias nuevas así que funcionará.
+            switcher.content = new_content
             page.update()
 
         #---------------------Sidebar---------------------
@@ -65,18 +83,51 @@ def main(page: ft.Page):
         page.add(layout)
         navigate_to("Actividades")
 
+    # Función para cargar opciones de Login
+    def load_login_interface():
+        def on_guest_enter(selected_dept):
+            if selected_dept:
+                print(f"Entrando como invitado: {selected_dept.nombre}")
+            else:
+                 print("Entrando como invitado (Sin departamento seleccionado)")
+            
+            # --- Transición Final (Cargando...) ---
+            # 1. Limpiar Login
+            page.clean()
+            
+            # 2. Mostrar "Cargando..."
+            loading = LoadingView(message="Cargando...")
+            page.add(loading)
+            page.update()
+            
+            # 3. Esperar 1.5 seg
+            time.sleep(1.5)
+            
+            # 4. Fade out
+            loading.opacity = 0
+            page.update()
+            time.sleep(0.5)
+            
+            # 5. Cargar App Principal
+            page.clean()
+            load_main_interface()
+
+        login_view = LoginOptionsView(on_app_start=on_guest_enter)
+        page.add(login_view)
+        page.update()
+
     # Función para intentar conectar
     def try_connect_and_start(e=None):
         page.clean()
         
-        # Mostrar carga
-        loading = LoadingView()
+        # 1. Mostrar "Conectando..."
+        loading = LoadingView(message="Conectando a la base de datos...")
         page.add(loading)
         page.update()
 
         print("Iniciando intento de conexión...")
         try:
-            # UX Delay inicial (Simulando conexión)
+            # UX Delay inicial 
             time.sleep(1.0) 
             
             # Verificar
@@ -87,24 +138,12 @@ def main(page: ft.Page):
             init_db()
             print("Base de datos inicializada correctamente")
             
-            # --- Transición Exitosa ---
-            # 1. Cambiar mensaje a "Cargando..."
-            loading.msg.value = "Cargando..."
-            page.update()
+            # Seed de datos (si aplica)
+            seed_data()
             
-            # 2. Mantener mensaje por 1.5 segundos (Solicitado por usuario)
-            time.sleep(1.5)
-            
-            # 3. Fade out
-            loading.opacity = 0
-            page.update()
-            
-            # 4. Esperar animación (0.5s porque animate_opacity=500)
-            time.sleep(0.5)
-            
-            # Limpiar y cargar app
+            # --- Transición Final (Cargando...) ---
             page.clean()
-            load_main_interface()
+            load_login_interface()
             
         except Exception as ex:
             print(f"Error al iniciar la base de datos: {ex}")

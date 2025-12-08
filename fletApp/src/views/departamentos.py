@@ -10,10 +10,19 @@ class DepartmentsView(ft.Container):
         super().__init__()
         self.expand = True
         self.padding = ft.padding.all(30)
+        
+        # Inicializar componentes
+        self._init_layout_components()
+
         self.content = ft.Column(
-            scroll=ft.ScrollMode.AUTO, 
-            controls=self._build_layout(),
+            controls=[
+                self.toolbar,
+                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+                self.data_container
+            ],
         )
+        
+        self.data_container.expand = True
         
         # VARIABLE DE ESTADO: Guarda el ID del elemento seleccionado
         self.selected_id = None 
@@ -114,7 +123,7 @@ class DepartmentsView(ft.Container):
 
     # --- CONSTRUCCIÓN DE UI ---
 
-    def _build_layout(self):
+    def _init_layout_components(self):
         
         self.toolbar = ft.Row(
             wrap=True,
@@ -159,12 +168,6 @@ class DepartmentsView(ft.Container):
 
         self.data_container = ft.Container()
 
-        return [
-            self.toolbar,
-            ft.Divider(height=30, color=ft.Colors.TRANSPARENT),
-            self.data_container
-        ]
-
     def refresh_data(self):
         departments_data = controller.get_all_departments()
 
@@ -191,44 +194,48 @@ class DepartmentsView(ft.Container):
                     )
                 )
 
-            self.data_container.content = ft.Container(
-                bgcolor=ft.Colors.WHITE,
-                border_radius=ft.border_radius.all(12),
-                padding=ft.padding.all(5),
-                content=ft.DataTable(
-                    width=float("inf"),
-                    heading_row_height=60,
-                    data_row_min_height=60,
-                    column_spacing=20,
-                    # Habilitamos la columna de checkboxes nativa
-                    show_checkbox_column=False,
-                    columns=[
-                        ft.DataColumn(ft.Text("NOMBRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                        ft.DataColumn(ft.Text("USUARIOS", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                    ],
-                    rows=rows
-                )
+            self.data_container.alignment = ft.alignment.top_center
+            self.data_container.content = ft.Column(
+                controls=[
+                    ft.Container(
+                        bgcolor=ft.Colors.WHITE,
+                        border_radius=ft.border_radius.all(12),
+                        padding=ft.padding.all(5),
+                        content=ft.DataTable(
+                            width=float("inf"),
+                            heading_row_height=60,
+                            data_row_min_height=60,
+                            column_spacing=20,
+                            # Habilitamos la columna de checkboxes nativa
+                            show_checkbox_column=False,
+                            columns=[
+                                ft.DataColumn(ft.Text("NOMBRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                                ft.DataColumn(ft.Text("USUARIOS", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
+                            ],
+                            rows=rows
+                        )
+                    )
+                ],
+                scroll=ft.ScrollMode.AUTO,
             )
         else:
-            self.data_container.content = ft.Container(
-                alignment=ft.alignment.center,
-                padding=ft.padding.only(top=50),
-                content=ft.Column(
-                    controls=[
-                        ft.Icon(
-                            name=ft.Icons.INBOX_OUTLINED,
-                            size=60,
-                            color=ft.Colors.GREY_300
-                        ),
-                        ft.Text(
-                            "No hay departamentos registrados.",
-                            color=ft.Colors.GREY_500,
-                            size=16
-                        )
-                    ],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=10
-                )
+            self.data_container.alignment = ft.alignment.center
+            self.data_container.content = ft.Column(
+                controls=[
+                    ft.Icon(
+                        name=ft.Icons.INBOX_OUTLINED,
+                        size=60,
+                        color=ft.Colors.GREY_300
+                    ),
+                    ft.Text(
+                        "No hay departamentos registrados.",
+                        color=ft.Colors.GREY_500,
+                        size=16
+                    )
+                ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=10
             )
         
         if self.data_container.page:
