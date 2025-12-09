@@ -9,7 +9,7 @@ from db.models import Usuario, Password, Departamento, UserRole
 # LECTURA (READ)
 # ==========================================
 
-def get_all_users(current_user=None):
+def get_all_users(current_user=None, filter_dept_id=None):
     db: Session = next(get_db())
     try:
         query = db.query(Usuario).options(
@@ -25,6 +25,10 @@ def get_all_users(current_user=None):
                  
                  if "Administrador" not in role_str:
                      query = query.filter(Usuario.departamento_id == current_user.departamento_id)
+                 else:
+                     # Si es Admin y tiene filtro explicito
+                     if filter_dept_id and filter_dept_id != "all":
+                         query = query.filter(Usuario.departamento_id == filter_dept_id)
             
              # Caso B: Departamento (Invitado)
              elif hasattr(current_user, 'code'):

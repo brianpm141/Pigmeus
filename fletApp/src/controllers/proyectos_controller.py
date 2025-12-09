@@ -3,7 +3,7 @@ from db.database import get_db
 from db.models import Proyecto, Usuario, Departamento
 from datetime import datetime
 
-def get_projects(current_user=None):
+def get_projects(current_user=None, filter_dept_id=None):
     db: Session = next(get_db())
     try:
         query = db.query(Proyecto).options(
@@ -16,7 +16,10 @@ def get_projects(current_user=None):
             # Case A: Usuario Object
             if hasattr(current_user, 'role'):
                 role_str = str(current_user.role.value) if hasattr(current_user.role, 'value') else str(current_user.role)
-                if "Administrador" not in role_str:
+                if "Administrador" in role_str:
+                     if filter_dept_id and filter_dept_id != "all":
+                         query = query.filter(Proyecto.departamento_id == filter_dept_id)
+                else:
                      query = query.filter(Proyecto.departamento_id == current_user.departamento_id)
             
             # Case B: Departamento Object (Guest)

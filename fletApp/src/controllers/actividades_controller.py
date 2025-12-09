@@ -8,7 +8,7 @@ from db.models import Actividad, Usuario, Categoria, Departamento, Proyecto
 # LECTURA (READ)
 # ==========================================
 
-def get_activities(current_user=None):
+def get_activities(current_user=None, filter_dept_id=None):
     db: Session = next(get_db())
     try:
         query = db.query(Actividad).options(
@@ -22,21 +22,21 @@ def get_activities(current_user=None):
              # Caso A: Es un objeto Usuario
              if hasattr(current_user, 'role'):
                  role_str = str(current_user.role.value) if hasattr(current_user.role, 'value') else str(current_user.role)
-                 if "Administrador" not in role_str:
-                     # Es Gerente o Basico -> Filtrar por su depto
+                 
+                 # Si ES Admin y hay filtro explicito -> aplicarlo
+                 if "Administrador" in role_str:
+                     if filter_dept_id and filter_dept_id != "all":
+                         query = query.join(Usuario).filter(Usuario.departamento_id == filter_dept_id)
+                 
+                 # Si NO es Admin -> Filtrar por su depto (Seguridad base)
+                 else:
                      query = query.join(Usuario).filter(Usuario.departamento_id == current_user.departamento_id)
              
              # Caso B: Es un objeto Departamento (Login Invitado)
-             # "nombre" y "code" son atributos de Departamento, pero "role" no.
              elif hasattr(current_user, 'code') and not hasattr(current_user, 'role'):
-                 # Es un login de invitado directo a un departamento
                  dept_id = current_user.id
                  query = query.join(Usuario).filter(Usuario.departamento_id == dept_id)
 
-        # Fail-closed (Opcional, pero recomendado si queremos strictness, pero get_activities solia devolver todo)
-        # Por ahora mantenemos que si current_user es None devuelva todo, o lo restringimos?
-        # El user pidio arreglar "usuario general", asumimos comportamiento por defecto.
-        
         activities = query.order_by(Actividad.created_at.desc()).all()
         return activities
     except Exception as e:

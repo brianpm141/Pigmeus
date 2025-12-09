@@ -33,7 +33,8 @@ class CategoriesView(ft.Container):
 # ... (skip to refresh_data)
 
     def refresh_data(self):
-        categories = controller.get_all_categories(self.current_user)
+        dept_filter_val = self.dept_filter.value if self.dept_filter else None
+        categories = controller.get_all_categories(self.current_user, filter_dept_id=dept_filter_val)
 
         if categories and len(categories) > 0:
             cards = []
@@ -195,10 +196,43 @@ class CategoriesView(ft.Container):
                     on_click=self._delete_handler,
                     expand=1
                 ),
-                ft.Container(expand=1)
+                ft.Container(expand=1),
             ],
             spacing=15
         )
+
+        # --- Filtro Administrativo (Solo Admins) ---
+        self.dept_filter = None
+        
+        is_admin = False
+        if self.current_user and hasattr(self.current_user, 'role'):
+            role_str = str(self.current_user.role.value) if hasattr(self.current_user.role, 'value') else str(self.current_user.role)
+            if "Administrador" in role_str:
+                is_admin = True
+        
+        if is_admin:
+            from controllers.departamentos_controller import get_all_departments
+            depts = get_all_departments()
+            
+            options = [ft.dropdown.Option("all", "Todos")]
+            for d in depts:
+                options.append(ft.dropdown.Option(str(d.id), d.nombre))
+            
+            self.dept_filter = ft.Dropdown(
+                width=200,
+                label="Filtrar por Departamento",
+                label_style=ft.TextStyle(color=styles.TEXT_COLOR, size=12),
+                text_style=ft.TextStyle(color=styles.TEXT_COLOR, size=14),
+                border_color=styles.PRIMARY_BLUE,
+                border_radius=8,
+                content_padding=10,
+                focused_border_color=styles.PRIMARY_BLUE,
+                value="all",
+                options=options,
+                on_change=lambda e: self.refresh_data()
+            )
+            
+            self.toolbar.controls.append(self.dept_filter)
 
         self.data_container = ft.Container()
 

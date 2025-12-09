@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload
 # LECTURA (READ)
 # ==========================================
 
-def get_all_categories(current_user=None):
+def get_all_categories(current_user=None, filter_dept_id=None):
     # IMPORTACIÓN LOCAL (Mueve el import aquí dentro)
     from db.database import get_db_context 
     
@@ -25,6 +25,10 @@ def get_all_categories(current_user=None):
                      
                      if "Administrador" not in role_str:
                          query = query.filter(Categoria.departamento_id == current_user.departamento_id)
+                     else:
+                         # Si es Admin y hay filtro explicito
+                         if filter_dept_id and filter_dept_id != "all":
+                             query = query.filter(Categoria.departamento_id == filter_dept_id)
                 
                  # Caso B: Departamento (Invitado)
                  elif hasattr(current_user, 'code'):

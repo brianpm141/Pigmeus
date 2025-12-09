@@ -19,8 +19,6 @@ class ActividadesView(ft.Container):
             controls=[
                 self.header,
                 ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
-                self.toolbar,
-                ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
                 self.data_container # Contenedor principal variable
             ],
         )
@@ -47,7 +45,9 @@ class ActividadesView(ft.Container):
         return ft.Container(
             content=ft.Text(text, color=txt, size=12, weight=ft.FontWeight.W_500),
             bgcolor=bg,
-            padding=ft.padding.symmetric(horizontal=10, vertical=5),
+            width=110,
+            height=30,
+            padding=ft.padding.symmetric(horizontal=10, vertical=0),
             border_radius=ft.border_radius.all(15),
             alignment=ft.alignment.center
         )
@@ -75,9 +75,6 @@ class ActividadesView(ft.Container):
             Aviso(self.page, "Selecciona una actividad para modificar", is_error=True).show()
             return
         
-        # Buscar actividad en la lista actual (optimización para no ir a BD solo por datos que ya tenemos, 
-        # aunque lo ideal es ir a BD. Aquí reusamos lo que tenemos en memoria o hacemos fetch)
-        # Haremos fetch fresco mejor.
         activities = get_activities()
         selected_act = next((a for a in activities if a.id == self.selected_id), None)
         
@@ -106,73 +103,193 @@ class ActividadesView(ft.Container):
         else:
             Aviso(self.page, res["message"], is_error=True).show()
 
-    # --- UI ---
+    # --- UI LAYOUT ---
 
     def _init_layout_components(self):
-        # Header
-        self.header = ft.Text("Actividades", size=24, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR)
+        # 1. Top Header Area (Page Title + Global Filter)
+        
+        # Filtro Administrativo (Solo Admins)
+        dept_filter_control = ft.Container() # Placeholder vacio por defecto
+        self.dept_filter = None
+        
+        is_admin = False
+        if self.current_user and hasattr(self.current_user, 'role'):
+            role_str = str(self.current_user.role.value) if hasattr(self.current_user.role, 'value') else str(self.current_user.role)
+            if "Administrador" in role_str:
+                is_admin = True
+        
+        if is_admin:
+            from controllers.departamentos_controller import get_all_departments
+            depts = get_all_departments()
+            
+            options = [ft.dropdown.Option("all", "Todos los Departamentos")]
+            for d in depts:
+                options.append(ft.dropdown.Option(str(d.id), d.nombre))
+            
+            self.dept_filter = ft.Dropdown(
+                width=250,
+                text_size=14,
+                content_padding=10,
+                filled=True,
+                bgcolor=ft.Colors.GREY_100,
+                border_color=ft.Colors.TRANSPARENT,
+                border_radius=8,
+                value="all",
+                options=options,
+                on_change=lambda e: self.refresh_data()
+            )
+            dept_filter_control = self.dept_filter
 
-        self.toolbar = ft.Row(
+        self.header = ft.Row(
             controls=[
-                ft.ElevatedButton(
-                    "Registrar actividad",
-                    icon=ft.Icons.ADD_CIRCLE_OUTLINE,
-                    bgcolor=styles.BTN_PRIMARY_BG,
-                    color=ft.Colors.WHITE,
-                    style=ft.ButtonStyle(
-                        shape=ft.RoundedRectangleBorder(radius=8),
-                        padding=ft.padding.symmetric(vertical=20) # Más alto (taller)
-                    ),
-                    on_click=self._open_register_modal,
-                    expand=1
-                ),
-                ft.ElevatedButton(
-                    "Marcar como completado",
-                    icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
-                    bgcolor=styles.BTN_COMPLETE_BG,
-                    color=styles.BTN_TEXT_WHITE,
-                    style=ft.ButtonStyle(
-                        shape=ft.RoundedRectangleBorder(radius=8),
-                        padding=ft.padding.symmetric(vertical=20)
-                    ),
-                    on_click=self._mark_completed,
-                    expand=1
-                ),
-                ft.ElevatedButton(
-                    "Modificar",
-                    icon=ft.Icons.EDIT_OUTLINED,
-                    bgcolor=styles.BTN_MODIFY_BG,
-                    color=styles.BTN_TEXT_WHITE,
-                    style=ft.ButtonStyle(
-                        shape=ft.RoundedRectangleBorder(radius=8),
-                        padding=ft.padding.symmetric(vertical=20)
-                    ),
-                    on_click=self._open_modify_modal,
-                    expand=1
-                ),
-                # Espacio libre a la derecha
-                ft.Container(expand=1) 
+                ft.Text("Lista de Actividades", size=24, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR),
+                ft.Container(expand=True),
+                dept_filter_control
             ],
-            spacing=15
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER
+        )
+
+        # 2. Main Content Card (Table + Actions)
+        
+        # Botones de Acción
+        self.btn_register = ft.ElevatedButton(
+            "Registrar",
+            icon=ft.Icons.ADD_CIRCLE_OUTLINE,
+            bgcolor=styles.BTN_PRIMARY_BG,
+            color=ft.Colors.WHITE,
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.padding.symmetric(horizontal=20, vertical=18)
+            ),
+            on_click=self._open_register_modal
         )
         
+        self.btn_complete = ft.ElevatedButton(
+            "Completar",
+            icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
+            bgcolor=styles.BTN_COMPLETE_BG, 
+            color=styles.BTN_TEXT_WHITE,
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=8),
+                padding=ft.padding.symmetric(horizontal=20, vertical=18)
+            ),
+            on_click=self._mark_completed
+        )
+        
+        # Barra de Título de Tabla + Botones
+        self.action_bar = ft.Row(
+            controls=[
+                ft.Text("Registro de Actividades", size=20, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR),
+                ft.Container(expand=True),
+                self.btn_register,
+                self.btn_complete
+            ],
+            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER
+        )
+
         self.data_container = ft.Container()
 
     def refresh_data(self):
-        activities = get_activities(self.current_user)
+        dept_filter_val = self.dept_filter.value if self.dept_filter else None
+        activities = get_activities(self.current_user, filter_dept_id=dept_filter_val)
         
+        # Reconstruir el contenido principal cada vez
+        content_card = ft.Container(
+            content=ft.Column(
+                controls=[
+                    self.action_bar,
+                    ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+                    ft.Container() # Placeholder
+                ],
+                spacing=0
+            ),
+            bgcolor=ft.Colors.WHITE,
+            padding=30,
+            border_radius=12,
+            shadow=ft.BoxShadow(
+                spread_radius=1,
+                blur_radius=15,
+                color=ft.Colors.with_opacity(0.08, ft.Colors.BLACK),
+                offset=ft.Offset(0, 4)
+            )
+        )
+
         if activities:
             rows_data = []
             for act in activities:
-                # Formatear fechas
-                start_date = act.horainicio.strftime("%Y-%m-%d") if act.horainicio else "-"
-                start_time = act.horainicio.strftime("%H:%M") if act.horainicio else "-"
+                # --- 1. USUARIO ---
+                user_nombre = act.usuario_rel.nombre if act.usuario_rel else "Desconocido"
                 
-                end_date = act.horacierre.strftime("%Y-%m-%d") if act.horacierre else "-"
-                end_time = act.horacierre.strftime("%H:%M") if act.horacierre else "-"
+                # Limpiar "De [Departamento]" del apellido
+                raw_apellido = act.usuario_rel.apellidos if act.usuario_rel else ""
+                user_apellido = raw_apellido
+                for d_name in ["De Ventas", "De RH", "De Desarrollo"]:
+                    user_apellido = user_apellido.replace(d_name, "").strip()
                 
-                user_name = f"{act.usuario_rel.nombre} {act.usuario_rel.apellidos}" if act.usuario_rel else "Desconocido"
-                cat_name = act.categoria_rel.nombre if act.categoria_rel else "General"
+                user_column = ft.Column(
+                    controls=[
+                        ft.Text(user_nombre, weight=ft.FontWeight.BOLD, size=14, color=styles.TEXT_COLOR),
+                        ft.Text(user_apellido, size=12, color=ft.Colors.GREY_600)
+                    ],
+                    spacing=2,
+                    alignment=ft.MainAxisAlignment.CENTER 
+                )
+                
+                # Container FLUIDO (sin height fijo), con padding vertical
+                user_cell = ft.Container(
+                    content=user_column,
+                    alignment=ft.alignment.center_left,
+                    padding=ft.padding.symmetric(vertical=10),
+                    width=160 # Ancho fijo estandarizado
+                )
+
+                # --- 2. CATEGORIA ---
+                raw_cat = act.categoria_rel.nombre if act.categoria_rel else "General"
+                cat_name = raw_cat
+                for badge in [" Ventas", " RH", " Desarrollo"]:
+                    cat_name = cat_name.replace(badge, "").strip()
+
+                cat_cell = ft.Container(
+                    content=ft.Text(cat_name, size=14, color=ft.Colors.GREY_700),
+                    alignment=ft.alignment.center_left,
+                    width=120 # Ancho fijo estandarizado
+                )
+
+                # --- 3. DETALLES ---
+                # Max lines = 2 para evitar que rompa el layout si es muy largo
+                detalles_cell = ft.Container(
+                    content=ft.Text(act.descripcion, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS, size=13, color=ft.Colors.GREY_600),
+                    width=220, # Ancho fijo (ya estaba)
+                    alignment=ft.alignment.center_left 
+                )
+
+                # --- 4. ESTADO ---
+                estado_cell = ft.Container(
+                    content=self._build_status_badge(act.estado),
+                    alignment=ft.alignment.center_left,
+                    width=120 # Ancho fijo estandarizado
+                )
+
+                # --- 5. FECHAS (Hora / Fecha) ---
+                def format_date_cell(dt):
+                    if not dt: return ft.Container(content=ft.Text("-"), alignment=ft.alignment.center, width=80)
+                    time_str = dt.strftime("%H:%M")
+                    date_str = dt.strftime("%d/%m")
+                    col = ft.Column(
+                        controls=[
+                            ft.Text(time_str, weight=ft.FontWeight.BOLD, size=14, color=styles.TEXT_COLOR),
+                            ft.Text(date_str, size=12, color=ft.Colors.GREY_500)
+                        ],
+                        spacing=0,
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                    )
+                    return ft.Container(content=col, alignment=ft.alignment.center, width=80) # Ancho fijo
+
+                start_cell = format_date_cell(act.horainicio)
+                end_cell = format_date_cell(act.horacierre)
                 
                 is_selected = (act.id == self.selected_id)
 
@@ -182,57 +299,59 @@ class ActividadesView(ft.Container):
                         on_select_changed=self._handle_select,
                         data=act.id,
                         cells=[
-                            ft.DataCell(ft.Text(user_name, weight=ft.FontWeight.W_500)),
-                            ft.DataCell(ft.Text(cat_name)),
-                            ft.DataCell(ft.Text(act.descripcion, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS)),
-                            ft.DataCell(self._build_status_badge(act.estado)),
-                            ft.DataCell(ft.Text(start_date)),
-                            ft.DataCell(ft.Text(start_time)),
-                            ft.DataCell(ft.Text(end_date)),
-                            ft.DataCell(ft.Text(end_time)),
+                            ft.DataCell(user_cell),
+                            ft.DataCell(cat_cell),
+                            ft.DataCell(detalles_cell),
+                            ft.DataCell(estado_cell),
+                            ft.DataCell(start_cell),
+                            ft.DataCell(end_cell),
                         ],
                     )
                 )
-
-            self.data_container.alignment = ft.alignment.top_center
-            self.data_container.content = ft.Column(
-                controls=[
-                    ft.Container(
-                        bgcolor=ft.Colors.WHITE,
-                        border_radius=ft.border_radius.all(12),
-                        padding=ft.padding.all(5),
-                        content=ft.DataTable(
-                            width=float("inf"),
-                            heading_row_height=60,
-                            data_row_min_height=60,
-                            column_spacing=20,
-                            show_checkbox_column=False,
-                            columns=[
-                                ft.DataColumn(ft.Text("USUARIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("CATEGORÍA", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("DETALLES", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("ESTADO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("FECHA INICIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("HORA INICIO", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("FECHA CIERRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                                ft.DataColumn(ft.Text("HORA CIERRE", color=ft.Colors.GREY_500, size=12, weight=ft.FontWeight.BOLD)),
-                            ],
-                            rows=rows_data
-                        )
-                    )
+            
+            # Insertar tabla en el card
+            content_card.content.controls[2] = ft.DataTable(
+                width=float("inf"),
+                heading_row_height=60,
+                # CONFIGURACIÓN CLAVE PARA EL ESPACIADO CORRECTO
+                data_row_min_height=80,       # Altura mínima reservada
+                data_row_max_height=float("inf"), # Crece si es necesario
+                column_spacing=20,
+                divider_thickness=0.5,
+                show_checkbox_column=False,
+                columns=[
+                    ft.DataColumn(ft.Text("USUARIO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
+                    ft.DataColumn(ft.Text("CATEGORÍA", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
+                    ft.DataColumn(ft.Text("DETALLES", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
+                    ft.DataColumn(ft.Text("ESTADO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
+                    ft.DataColumn(ft.Text("INICIO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
+                    ft.DataColumn(ft.Text("CIERRE", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
                 ],
-                scroll=ft.ScrollMode.AUTO,
+                rows=rows_data
             )
         else:
-            self.data_container.alignment = ft.alignment.center
-            self.data_container.content = ft.Column(
-                controls=[
-                    ft.Icon(ft.Icons.INBOX_OUTLINED, size=60, color=ft.Colors.GREY_300),
-                    ft.Text("No hay actividades registradas.", color=ft.Colors.GREY_500, size=16)
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                alignment=ft.MainAxisAlignment.CENTER,
-                spacing=10
+            # Empty State
+            content_card.content.controls[2] = ft.Container(
+                content=ft.Column(
+                    controls=[
+                        ft.Icon(ft.Icons.INBOX_OUTLINED, size=50, color=ft.Colors.GREY_300),
+                        ft.Text("No hay actividades registradas.", color=ft.Colors.GREY_400, size=14)
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=10
+                ),
+                padding=50,
+                alignment=ft.alignment.center
             )
+
+        # Actualizar el contenedor principal
+        self.data_container.content = ft.Column(
+             controls=[
+                 ft.Container(height=10),
+                 content_card
+             ],
+             scroll=ft.ScrollMode.AUTO
+        )
+        
         if self.page:
             self.update()
