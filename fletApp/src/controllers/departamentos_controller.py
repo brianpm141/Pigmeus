@@ -28,26 +28,29 @@ def get_all_departments():
 # ESCRITURA (CREATE / UPDATE)
 # ==========================================
 
-def create_department(nombre: str):
+def create_department(nombre: str, code: int):
     db: Session = next(get_db())
     try:
         nombre_limpio = nombre.strip()
-        existing = db.query(Departamento).filter(func.lower(Departamento.nombre) == nombre_limpio.lower()).first()
+        
+        # 1. Validar Nombre Duplicado
+        existing_name = db.query(Departamento).filter(func.lower(Departamento.nombre) == nombre_limpio.lower()).first()
+        if existing_name:
+            if existing_name.status == 0:
+                # Opcional: Podríamos reactivar, pero cuidando el código.
+                # Simplificación: No permitimos reactivar si el código choca con otro activo.
+                return {"status": "error", "message": "El nombre del departamento ya existe (inactivo o activo)."}
+            return {"status": "error", "message": "El nombre del departamento ya existe."}
 
-        if existing:
-            if existing.status == 0:
-                existing.status = 1
-                existing.nombre = nombre_limpio
-                db.commit()
-                return {"status": "success", "message": "Departamento reactivado exitosamente."}
-            else:
-                return {"status": "error", "message": "Ya existe un departamento con ese nombre."}
+        # 2. Validar Código Duplicado
+        existing_code = db.query(Departamento).filter(Departamento.code == code).first()
+        if existing_code:
+            return {"status": "error", "message": "El código del departamento ya existe."}
 
-        new_dept = Departamento(nombre=nombre_limpio, status=1)
+        new_dept = Departamento(nombre=nombre_limpio, code=code, status=1)
         db.add(new_dept)
         db.commit()
         
-        # MENSAJE DE ÉXITO CLARO
         return {"status": "success", "message": "Departamento creado correctamente."} 
         
     except Exception as e:
@@ -56,24 +59,32 @@ def create_department(nombre: str):
     finally:
         db.close()
 
-def update_department(dept_id: int, nombre: str):
+def update_department(dept_id: int, nombre: str, code: int):
     db: Session = next(get_db())
     try:
-        # ... (validaciones de duplicados igual que antes) ...
-        # (Asegúrate de copiar tu lógica de validación de duplicados aquí si no la tienes a mano)
         nombre_limpio = nombre.strip()
         
         dept = db.query(Departamento).filter(Departamento.id == dept_id).first()
         if not dept: return {"status": "error", "message": "No encontrado"}
         
-        # Validación duplicado (resumida para este ejemplo)
-        existing = db.query(Departamento).filter(func.lower(Departamento.nombre) == nombre_limpio.lower(), Departamento.id != dept_id).first()
-        if existing: return {"status": "error", "message": "El nombre ya existe"}
+        # 1. Validar Nombre Duplicado (Excluyendo actual)
+        existing_name = db.query(Departamento).filter(
+            func.lower(Departamento.nombre) == nombre_limpio.lower(), 
+            Departamento.id != dept_id
+        ).first()
+        if existing_name: return {"status": "error", "message": "El nombre ya existe"}
+
+        # 2. Validar Código Duplicado (Excluyendo actual)
+        existing_code = db.query(Departamento).filter(
+            Departamento.code == code, 
+            Departamento.id != dept_id
+        ).first()
+        if existing_code: return {"status": "error", "message": "El código ya existe"}
 
         dept.nombre = nombre_limpio
+        dept.code = code
         db.commit()
         
-        # MENSAJE DE ÉXITO CLARO
         return {"status": "success", "message": "Departamento modificado correctamente."}
     except Exception as e:
         db.rollback()

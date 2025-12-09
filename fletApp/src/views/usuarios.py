@@ -6,10 +6,11 @@ from views.pops.eliminar import ConfirmationDialog
 from views.pops.mensaje import Aviso
 
 class UsersView(ft.Container):
-    def __init__(self):
+    def __init__(self, current_user):
         super().__init__()
         self.expand = True
         self.padding = ft.padding.all(30)
+        self.current_user = current_user
         
         # Inicializar componentes
         self._init_layout_components()
@@ -48,22 +49,34 @@ class UsersView(ft.Container):
         self.refresh_data()
 
     def _open_create_modal(self, e):
-        form = UserForm(e.page, on_success=self.refresh_data)
+        form = UserForm(e.page, on_success=self.refresh_data, current_user=self.current_user)
         form.show()
 
     def _open_modify_modal(self, e):
         if not self.selected_id:
             self._show_aviso("Selecciona un usuario para modificar", is_error=True)
             return
-
-        # Obtener datos frescos de la BD
-        all_users = controller.get_all_users()
+        
+        # Pasamos current_user al controller también si hiciera falta lógica extra, pero aquí recuperamos 1
+        # Sin embargo, get_all_users ya filtra, así que si intentan modificar uno que no ven, fallaría (bien).
+        all_users = controller.get_all_users(self.current_user)
         selected_user = next((u for u in all_users if u.id == self.selected_id), None)
 
         if selected_user:
             # Crear diccionario compatible con el formulario
             # Aseguramos obtener el valor string del Enum
             role_val = selected_user.role.value if hasattr(selected_user.role, 'value') else selected_user.role
+            
+            # --- Validacion Extra: Gerente no puede editar Admin ---
+            if self.current_user:
+                my_role = str(self.current_user.role.value) if hasattr(self.current_user.role, 'value') else str(self.current_user.role)
+                target_role = str(role_val)
+                
+                # Si soy Gerente (y no Admin) y quiero editar a un Admin -> Error
+                if "Gerente" in my_role and "Administrador" not in my_role:
+                    if "Administrador" in target_role:
+                        self._show_aviso("No tienes permisos para modificar a un Administrador.", is_error=True)
+                        return
             
             user_dict = {
                 "id": selected_user.id,
@@ -75,7 +88,7 @@ class UsersView(ft.Container):
                 "role": role_val
             }
             
-            form = UserForm(e.page, user_data=user_dict, on_success=self.refresh_data)
+            form = UserForm(e.page, user_data=user_dict, on_success=self.refresh_data, current_user=self.current_user)
             form.show()
 
     def _delete_handler(self, e):
@@ -209,7 +222,7 @@ class UsersView(ft.Container):
         self.refresh_data()
 
     def refresh_data(self):
-        users_data = controller.get_all_users()
+        users_data = controller.get_all_users(self.current_user)
 
         if users_data and len(users_data) > 0:
             cards = []

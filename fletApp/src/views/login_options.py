@@ -1,6 +1,7 @@
 import flet as ft
 import views.styles as styles
 from controllers.departamentos_controller import get_all_departments
+from controllers.usuarios_controller import login_user
 
 class LoginOptionsView(ft.Container):
     def __init__(self, on_app_start):
@@ -56,7 +57,7 @@ class LoginOptionsView(ft.Container):
                 ),
                 ft.Text("o", size=14, color=ft.Colors.GREY_500),
                 ft.OutlinedButton(
-                    "Ingresar sin cuenta",
+                    "Acceso General",
                     icon=ft.Icons.PERSON_OUTLINE,
                     style=ft.ButtonStyle(
                         color=styles.PRIMARY_BLUE,
@@ -72,21 +73,44 @@ class LoginOptionsView(ft.Container):
         )
 
     def _build_login_form(self):
+        self.user_input = ft.TextField(label="Usuario", width=250, border_radius=8)
+        self.pass_input = ft.TextField(label="Contraseña", width=250, password=True, can_reveal_password=True, border_radius=8)
+        self.login_error = ft.Text("", color="red", size=12)
+
         return ft.Column(
             controls=[
-                ft.TextField(label="Usuario", width=250, border_radius=8),
-                ft.TextField(label="Contraseña", width=250, password=True, can_reveal_password=True, border_radius=8),
+                self.user_input,
+                self.pass_input,
+                self.login_error,
                 ft.Container(height=10),
                 ft.ElevatedButton(
                     "Ingresar",
                     width=250,
                     style=ft.ButtonStyle(bgcolor=styles.PRIMARY_BLUE, color="white"),
+                    on_click=self._verify_login
                 ),
                 ft.TextButton("Regresar", on_click=lambda _: self._switch_view(self.main_options))
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=10
         )
+
+    def _verify_login(self, e):
+        u = self.user_input.value
+        p = self.pass_input.value
+        
+        if not u or not p:
+            self.login_error.value = "Todos los campos son requeridos."
+            self.update()
+            return
+
+        result = login_user(u, p)
+        if result["status"] == "success":
+            # LOGIN CORRECTO
+            self.on_app_start(result["user"])
+        else:
+             self.login_error.value = result["message"]
+             self.update()
 
     def _build_guest_selection(self):
         self.dept_list = ft.ListView(expand=False, height=200, spacing=10, padding=10)
@@ -180,6 +204,7 @@ class LoginOptionsView(ft.Container):
             # Validar
             if str(self.selected_dept.code) == str(entered_code):
                  # Correcto
+                 print(f"Entrando (General): {self.selected_dept.nombre}")
                  self.on_app_start(self.selected_dept)
             else:
                  self.code_error.value = "Código incorrecto."

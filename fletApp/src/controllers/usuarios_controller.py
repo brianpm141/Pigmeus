@@ -9,15 +9,28 @@ from db.models import Usuario, Password, Departamento, UserRole
 # LECTURA (READ)
 # ==========================================
 
-def get_all_users():
+def get_all_users(current_user=None):
     db: Session = next(get_db())
     try:
-        users = db.query(Usuario).options(
+        query = db.query(Usuario).options(
             joinedload(Usuario.departamento),
             joinedload(Usuario.password)
-        ).filter(
-            Usuario.status == 1
-        ).order_by(Usuario.nombre.asc()).all()
+        ).filter(Usuario.status == 1)
+        
+        # Filtrado por Rol
+        if current_user:
+             # Caso A: Usuario
+             if hasattr(current_user, 'role'):
+                 role_str = str(current_user.role.value) if hasattr(current_user.role, 'value') else str(current_user.role)
+                 
+                 if "Administrador" not in role_str:
+                     query = query.filter(Usuario.departamento_id == current_user.departamento_id)
+            
+             # Caso B: Departamento (Invitado)
+             elif hasattr(current_user, 'code'):
+                 query = query.filter(Usuario.departamento_id == current_user.id)
+        
+        users = query.order_by(Usuario.nombre.asc()).all()
         
         return users
     except Exception as e:
@@ -150,5 +163,40 @@ def delete_user_logical(db_id: int):
     except Exception as e:
         db.rollback()
         return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
+
+# ==========================================
+# AUTHENTICATION
+# ==========================================
+
+def login_user(username: str, password_raw: str):
+    db: Session = next(get_db())
+    try:
+        # 1. Buscar usuario
+        user = db.query(Usuario).options(
+            joinedload(Usuario.password),
+            joinedload(Usuario.departamento)
+        ).filter(Usuario.username == username).first()
+        
+        if not user:
+            return {"status": "error", "message": "Usuario no encontrado."}
+        
+        if user.status == 0:
+            return {"status": "error", "message": "Cuenta inactiva."}
+
+        # 2. Verificar Password
+        if not user.password:
+            # Caso raro: usuario sin pass_id o registro roto
+            return {"status": "error", "message": "Error de integridad: Sin credenciales."}
+
+        stored_hash = user.password.hash.encode('utf-8')
+        if bcrypt.checkpw(password_raw.encode('utf-8'), stored_hash):
+            return {"status": "success", "user": user, "message": "Bienvenido"}
+        else:
+            return {"status": "error", "message": "Contraseña incorrecta."}
+
+    except Exception as e:
+        return {"status": "error", "message": f"Error de sistema: {str(e)}"}
     finally:
         db.close()

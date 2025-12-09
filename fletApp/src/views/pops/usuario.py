@@ -5,11 +5,12 @@ import controllers.departamentos_controller as dept_controller
 from views.pops.mensaje import Aviso
 
 class UserForm(ft.AlertDialog):
-    def __init__(self, page: ft.Page, user_data=None, on_success=None):
+    def __init__(self, page: ft.Page, user_data=None, on_success=None, current_user=None):
         super().__init__()
         self.page = page
         self.user_data = user_data
         self.on_success = on_success
+        self.current_user = current_user
         
         self.modal = True
         self.bgcolor = ft.Colors.WHITE
@@ -94,21 +95,45 @@ class UserForm(ft.AlertDialog):
             on_change=self._clear_error
         )
         
+        # Lógica de Roles según Permisos del Creador
+        role_options = [
+            ft.dropdown.Option("Básico"),
+            ft.dropdown.Option("Gerente"),
+            ft.dropdown.Option("Administrador"),
+        ]
+
+        default_role = "Básico"
+        
+        # Validar permisos de quien crea
+        is_admin = False
+        is_manager = False
+        
+        if self.current_user:
+            role_str = str(self.current_user.role.value) if hasattr(self.current_user.role, 'value') else str(self.current_user.role)
+            if "Administrador" in role_str:
+                is_admin = True
+            elif "Gerente" in role_str:
+                is_manager = True
+
+        if is_manager:
+            # Gerente puede crear Basico y Gerente
+            role_options = [
+                ft.dropdown.Option("Básico"),
+                ft.dropdown.Option("Gerente")
+            ]
+            default_role = "Básico"
+
         self.role_dropdown = ft.Dropdown(
             label="Rol / Permisos", border_color=ft.Colors.GREY_300,
-            options=[
-                ft.dropdown.Option("Básico"),
-                ft.dropdown.Option("Gerente"),
-                ft.dropdown.Option("Administrador"),
-            ],
+            options=role_options,
             text_style=ft.TextStyle(color=styles.TEXT_COLOR), label_style=ft.TextStyle(color=styles.TEXT_COLOR),
-            value="Básico",
+            value=default_role,
             expand=True,
             on_change=self._clear_error
         )
 
         # Cargar departamentos desde la BD
-        self._load_departments()
+        self._load_departments(is_manager)
 
         # ==================== LOGICA DE EDICIÓN ====================
         # Si estamos editando, ocultamos password y llenamos datos
@@ -128,6 +153,11 @@ class UserForm(ft.AlertDialog):
                 self.dept_dropdown.value = str(user_data.get("departamento_id"))
         else:
             # -- MODO CREACIÓN --
+            # Si es Manager, pre-seleccionar y bloquear depto
+            if is_manager and self.current_user:
+                 self.dept_dropdown.value = str(self.current_user.departamento_id)
+                 self.dept_dropdown.disabled = True
+
             # Solo mostramos los campos de contraseña si estamos creando uno nuevo
             password_section = ft.Row(
                 controls=[self.password_field, self.confirm_pass_field],
@@ -162,11 +192,16 @@ class UserForm(ft.AlertDialog):
         ]
         self.actions_alignment = ft.MainAxisAlignment.END
 
-    def _load_departments(self):
+    def _load_departments(self, is_manager=False):
         depts = dept_controller.get_all_departments()
         options = []
         for d in depts:
-            options.append(ft.dropdown.Option(key=str(d.id), text=d.nombre))
+            # Si es Manager, solo mostrar su depto (aunque ya esté bloqueado, por consistencia)
+            if is_manager and self.current_user:
+                if d.id == self.current_user.departamento_id:
+                    options.append(ft.dropdown.Option(key=str(d.id), text=d.nombre))
+            else:
+                options.append(ft.dropdown.Option(key=str(d.id), text=d.nombre))
         self.dept_dropdown.options = options
 
     def _get_role_string(self, role_val):
@@ -230,7 +265,26 @@ class UserForm(ft.AlertDialog):
             elif pwd != pwd_confirm:
                 self.confirm_pass_field.error_text = "No coinciden"
                 has_error = True
+            else:
+                # Validaciones de seguridad
+                import re
                 
+                # a) Longitud 8-16
+                if not (8 <= len(pwd) <= 16):
+                    self.password_field.error_text = "Debe tener entre 8 y 16 caracteres"
+                    has_error = True
+                
+                # b) Al menos una mayúscula
+                elif not re.search(r'[A-Z]', pwd):
+                    self.password_field.error_text = "Debe incluir al menos una mayúscula"
+                    has_error = True
+                    
+                # c) Al menos un signo/caracter especial
+                # Consideramos "signo" cualquier cosa que no sea alfanumérico estandar
+                elif not re.search(r'[^a-zA-Z0-9]', pwd):
+                    self.password_field.error_text = "Debe incluir al menos un símbolo"
+                    has_error = True
+
             if has_error:
                 self.page.update()
                 return

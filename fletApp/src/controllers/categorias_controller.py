@@ -7,17 +7,34 @@ from sqlalchemy.orm import joinedload
 # LECTURA (READ)
 # ==========================================
 
-def get_all_categories():
+def get_all_categories(current_user=None):
     # IMPORTACIÓN LOCAL (Mueve el import aquí dentro)
     from db.database import get_db_context 
     
     with get_db_context() as db:
         try:
-            categories = db.query(Categoria).options(
+            query = db.query(Categoria).options(
                 joinedload(Categoria.departamento_rel)
-            ).filter(
-                Categoria.status == 1
-            ).order_by(Categoria.nombre.asc()).all()
+            ).filter(Categoria.status == 1)
+            
+            # Filtrado por Rol / Contexto
+            if current_user:
+                 # Caso A: Usuario
+                 if hasattr(current_user, 'role'):
+                     role_str = str(current_user.role.value) if hasattr(current_user.role, 'value') else str(current_user.role)
+                     
+                     if "Administrador" not in role_str:
+                         query = query.filter(Categoria.departamento_id == current_user.departamento_id)
+                
+                 # Caso B: Departamento (Invitado)
+                 elif hasattr(current_user, 'code'):
+                     query = query.filter(Categoria.departamento_id == current_user.id)
+            else:
+                 # print("DEBUG: current_user is None in get_all_categories")
+                 # FAIL CLOSED: Si no hay usuario, no mostramos nada (seguridad)
+                 return []
+
+            categories = query.order_by(Categoria.nombre.asc()).all()
             
             return categories
         except Exception as e:

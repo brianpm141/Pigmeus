@@ -6,10 +6,11 @@ from views.pops.proyecto import ProjectForm
 from views.pops.eliminar import ConfirmationDialog
 
 class ProjectsView(ft.Container):
-    def __init__(self):
+    def __init__(self, current_user=None):
         super().__init__()
         self.expand = True
         self.padding = ft.padding.all(30)
+        self.current_user = current_user
         
         # Inicializar componentes
         self._init_layout_components()
@@ -42,7 +43,7 @@ class ProjectsView(ft.Container):
         self.refresh_data()
 
     def _open_create_modal(self, e):
-        form = ProjectForm(self.page, on_success=self.refresh_data)
+        form = ProjectForm(self.page, on_success=self.refresh_data, current_user=self.current_user)
         form.open_dialog()
 
     def _open_modify_modal(self, e):
@@ -61,7 +62,7 @@ class ProjectsView(ft.Container):
                 "responsable_id": selected_proj.responsable_id,
                 "departamento_id": selected_proj.departamento_id,
             }
-            form = ProjectForm(self.page, project_data=proj_data, on_success=self.refresh_data)
+            form = ProjectForm(self.page, project_data=proj_data, on_success=self.refresh_data, current_user=self.current_user)
             form.open_dialog()
 
     def _delete_handler(self, e):
@@ -223,7 +224,7 @@ class ProjectsView(ft.Container):
         self.refresh_data()
 
     def refresh_data(self):
-        projects = controller.get_projects()
+        projects = controller.get_projects(self.current_user)
         
         if projects:
             cards = []

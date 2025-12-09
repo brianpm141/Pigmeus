@@ -8,16 +8,36 @@ from db.models import Actividad, Usuario, Categoria, Departamento, Proyecto
 # LECTURA (READ)
 # ==========================================
 
-def get_activities():
+def get_activities(current_user=None):
     db: Session = next(get_db())
     try:
-        activities = db.query(Actividad).options(
+        query = db.query(Actividad).options(
             joinedload(Actividad.usuario_rel),
             joinedload(Actividad.categoria_rel),
             joinedload(Actividad.proyecto_rel)
-        ).filter(
-            Actividad.status == 1
-        ).order_by(Actividad.created_at.desc()).all()
+        ).filter(Actividad.status == 1)
+        
+        # Filtrado por Rol / Contexto
+        if current_user:
+             # Caso A: Es un objeto Usuario
+             if hasattr(current_user, 'role'):
+                 role_str = str(current_user.role.value) if hasattr(current_user.role, 'value') else str(current_user.role)
+                 if "Administrador" not in role_str:
+                     # Es Gerente o Basico -> Filtrar por su depto
+                     query = query.join(Usuario).filter(Usuario.departamento_id == current_user.departamento_id)
+             
+             # Caso B: Es un objeto Departamento (Login Invitado)
+             # "nombre" y "code" son atributos de Departamento, pero "role" no.
+             elif hasattr(current_user, 'code') and not hasattr(current_user, 'role'):
+                 # Es un login de invitado directo a un departamento
+                 dept_id = current_user.id
+                 query = query.join(Usuario).filter(Usuario.departamento_id == dept_id)
+
+        # Fail-closed (Opcional, pero recomendado si queremos strictness, pero get_activities solia devolver todo)
+        # Por ahora mantenemos que si current_user es None devuelva todo, o lo restringimos?
+        # El user pidio arreglar "usuario general", asumimos comportamiento por defecto.
+        
+        activities = query.order_by(Actividad.created_at.desc()).all()
         return activities
     except Exception as e:
         print(f"Error al obtener actividades: {e}")
@@ -29,7 +49,7 @@ def get_activities():
 # ESCRITURA (CREATE)
 # ==========================================
 
-def create_activity(user_id: int, password_attempt: str, category_id: int, details: str, status_str: str):
+def create_activity(user_id: int, password_attempt: str, category_id: int, details: str, status_str: str, skip_password_check=False):
     db: Session = next(get_db())
     try:
         # 1. Validar Usuario y Contraseña
@@ -37,9 +57,10 @@ def create_activity(user_id: int, password_attempt: str, category_id: int, detai
         if not user:
             return {"status": "error", "message": "Usuario no encontrado."}
         
-        # Verificar password
-        if not bcrypt.checkpw(password_attempt.encode('utf-8'), user.password.hash.encode('utf-8')):
-            return {"status": "error", "message": "Contraseña incorrecta."}
+        # Verificar password (si no se salta)
+        if not skip_password_check:
+            if not bcrypt.checkpw(password_attempt.encode('utf-8'), user.password.hash.encode('utf-8')):
+                return {"status": "error", "message": "Contraseña incorrecta."}
 
         # 2. Configurar Fechas y Estado
         now = datetime.now()

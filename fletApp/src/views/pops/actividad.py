@@ -6,20 +6,23 @@ from controllers.categorias_controller import get_all_categories
 from views.pops.mensaje import Aviso
 
 class ActivityForm(ft.AlertDialog):
-    def __init__(self, page: ft.Page, activity_data=None, on_success=None):
+    def __init__(self, page: ft.Page, activity_data=None, on_success=None, current_user=None):
         super().__init__()
         self.page = page
         self.activity_data = activity_data
         self.on_success = on_success
+        self.current_user = current_user
         
         self.modal = True
         self.bgcolor = ft.Colors.WHITE
         self.surface_tint_color = ft.Colors.WHITE
         self.shape = ft.RoundedRectangleBorder(radius=10)
         
-        # Cargar datos
-        self.users = get_all_users()
-        self.categories = get_all_categories() 
+        # Cargar datos filtrados
+        # Nota: get_all_users aun no tiene filtro por usuario/rol explicito si no se le pasa, 
+        # pero ya lo actualizamos antes.
+        self.users = get_all_users(current_user)
+        self.categories = get_all_categories(current_user) 
         
         # --- CAMPOS ---
         
@@ -91,6 +94,19 @@ class ActivityForm(ft.AlertDialog):
         )
         self._update_status_visuals(is_completed=False)
 
+        # --- PRE-CONFIGURACIÓN (Auth Automática) ---
+        self.is_authenticated_user = False
+        if self.current_user and hasattr(self.current_user, 'role'):
+            # Es un usuario logueado (No invitado)
+            self.is_authenticated_user = True
+            
+            # Pre-seleccionar usuario
+            self.user_dropdown.value = str(self.current_user.id)
+            self.user_dropdown.visible = False # Ocultar dropdown
+            self.password_field.visible = False # Ocultar contraseña
+            
+            # Si estamos creando, el usuario ya está set.
+
         # --- PRE-LLENADO (Modificar) ---
         if activity_data:
             # Usuario
@@ -98,6 +114,11 @@ class ActivityForm(ft.AlertDialog):
             if user_id:
                 self.user_dropdown.value = str(user_id)
                 self.user_dropdown.disabled = True # No permitir cambiar usuario
+                self.user_dropdown.visible = True # En modificar quizás queramos verlo aunque estemos logueados? 
+                # Depende, si soy yo modificando mi act, ok. Si soy admin modificando la de otro...
+                # El requerimiento decía "el formulario de registrar actividad". Modificar es otra cosa.
+                # Dejaremos visible en modificar para que sepa de quien es, pero disabled.
+                
                 self.password_field.visible = False # No pedir password al modificar
             
             # Categoría
@@ -194,9 +215,17 @@ class ActivityForm(ft.AlertDialog):
                 self.user_dropdown.error_text = "Requerido"
                 has_error = True
             
-            if not self.password_field.value:
-                self.password_field.error_text = "Requerida"
-                has_error = True
+            # Solo validar contraseña si NO es usuario autenticado
+            password_val = ""
+            skip_pass = False
+            
+            if self.is_authenticated_user:
+                skip_pass = True
+            else:
+                if not self.password_field.value:
+                    self.password_field.error_text = "Requerida"
+                    has_error = True
+                password_val = self.password_field.value
                 
             if has_error:
                 self.page.update()
@@ -204,10 +233,11 @@ class ActivityForm(ft.AlertDialog):
 
             res = create_activity(
                 user_id=int(self.user_dropdown.value),
-                password_attempt=self.password_field.value,
+                password_attempt=password_val,
                 category_id=int(self.category_dropdown.value),
                 details=self.details_field.value,
-                status_str=status_str
+                status_str=status_str,
+                skip_password_check=skip_pass
             )
 
         if res["status"] == "success":

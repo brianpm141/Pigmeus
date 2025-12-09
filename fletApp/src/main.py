@@ -7,6 +7,7 @@ from views.departamentos import DepartmentsView
 from views.usuarios import UsersView
 from views.usuarios import UsersView
 from views.categorias import CategoriesView
+from views.proyectos import ProjectsView
 from views.loading import LoadingView
 from views.login_options import LoginOptionsView
 from db.seed import seed_data 
@@ -44,7 +45,7 @@ def main(page: ft.Page):
     )
 
     # Definir la interfaz principal (lógica de navegación)
-    def load_main_interface():
+    def load_main_interface(session_data):
         # --------------------Contenido ---------------------
         # Switcher interno para vistas de la App (Departamentos, Usuarios, etc.)
         app_content_switcher = ft.AnimatedSwitcher(
@@ -66,13 +67,15 @@ def main(page: ft.Page):
             new_content = None
             
             if view_name == "Actividades":
-                new_content = ActividadesView()
+                new_content = ActividadesView(session_data)
             elif view_name == "Departamentos":
                 new_content = DepartmentsView()
             elif view_name == "Usuarios":
-                new_content = UsersView()
+                new_content = UsersView(session_data)
             elif view_name == "Categorias":
-                new_content = CategoriesView()
+                new_content = CategoriesView(session_data)
+            elif view_name == "Proyectos":
+                new_content = ProjectsView(session_data)
             else:
                 new_content = ft.Column(
                     controls=[
@@ -93,8 +96,19 @@ def main(page: ft.Page):
             app_content_switcher.content = new_content
             app_content_switcher.update()
 
+        #---------------------Logout---------------------
+        def logout_app():
+            # Resetear UI y mostrar pantalla de carga -> Login
+            loading = LoadingView(message="Cerrando Sesión...")
+            set_root_content(loading)
+            loading.animate_in()
+            
+            page.update()
+            time.sleep(1.0)
+            load_login_interface()
+
         #---------------------Sidebar---------------------
-        sidebar = Sidebar(on_nav_change=navigate_to)
+        sidebar = Sidebar(on_nav_change=navigate_to, current_user=session_data, on_logout=logout_app)
 
         layout = ft.Row(
             controls=[sidebar, content_area],
@@ -105,19 +119,29 @@ def main(page: ft.Page):
         set_root_content(layout)
         
         # Iniciar en Actividades por defecto
-        # Pequeño delay para que el layout se monte antes de cargar la vista
-        # (Aunque en Flet síncrono no es estrictamente necesario, ayuda a la fluidez visual)
         navigate_to("Actividades")
 
     # Función para cargar opciones de Login
     def load_login_interface():
-        def on_guest_enter(selected_dept):
-            if selected_dept:
-                print(f"Entrando como invitado: {selected_dept.nombre}")
+        # Puede recibir un objeto Usuario (Login real) o Departamento (Invitado)
+        def on_session_start(session_data):
+            # import local para type checking si fuera necesario, o usar duck typing
+            from db.models import Usuario, Departamento
             
+            user_name = ""
+            
+            if isinstance(session_data, Usuario):
+                print(f"Sesión iniciada: {session_data.username} ({session_data.role.value})")
+                user_name = session_data.username
+            elif isinstance(session_data, Departamento):
+                 print(f"Entrando (General): {session_data.nombre}")
+                 user_name = "Invitado"
+            else:
+                 print("Sesión iniciada con datos desconocidos")
+                 user_name = "Usuario"
+
             # --- Transición Final (Cargando...) ---
-            # Mostrar "Cargando..." brevemente antes de entrar
-            loading_transition = LoadingView(message=f"Iniciando en {selected_dept.nombre}...")
+            loading_transition = LoadingView(message=f"Bienvenido {user_name}...")
             set_root_content(loading_transition)
             
             # Trigger animation
@@ -126,9 +150,9 @@ def main(page: ft.Page):
             # Simular carga
             page.update()
             time.sleep(1.5)
-            load_main_interface()
+            load_main_interface(session_data)
 
-        login_view = LoginOptionsView(on_app_start=on_guest_enter)
+        login_view = LoginOptionsView(on_app_start=on_session_start)
         set_root_content(login_view)
 
     # Función para intentar conectar

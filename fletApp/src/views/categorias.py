@@ -6,10 +6,11 @@ from views.pops.eliminar import ConfirmationDialog
 from views.pops.mensaje import Aviso
 
 class CategoriesView(ft.Container):
-    def __init__(self):
+    def __init__(self, current_user):
         super().__init__()
         self.expand = True
         self.padding = ft.padding.all(30)
+        self.current_user = current_user
         
         # Inicializar componentes
         self._init_layout_components()
@@ -29,8 +30,44 @@ class CategoriesView(ft.Container):
         self.selected_id = None 
         
         self.refresh_data()
+# ... (skip to refresh_data)
 
-    # --- MANEJADORES DE EVENTOS ---
+    def refresh_data(self):
+        categories = controller.get_all_categories(self.current_user)
+
+        if categories and len(categories) > 0:
+            cards = []
+            for cat in categories:
+                cards.append(self._build_card(cat))
+
+            self.data_container.alignment = ft.alignment.top_center
+            self.data_container.content = ft.ListView(
+                controls=cards,
+                spacing=15,
+                padding=ft.padding.only(bottom=20)
+            )
+        else:
+            self.data_container.alignment = ft.alignment.center
+            self.data_container.content = ft.Column(
+                controls=[
+                    ft.Icon(
+                        name=ft.Icons.CATEGORY_OUTLINED,
+                        size=60,
+                        color=ft.Colors.GREY_300
+                    ),
+                    ft.Text(
+                        "No hay categorías registradas.",
+                        color=ft.Colors.GREY_500,
+                        size=16
+                    )
+                ],
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER,
+                spacing=10
+            )
+        
+        if self.data_container.page:
+            self.data_container.update()
 
     def _handle_select(self, e):
         is_selected = e.data == "true"
@@ -49,7 +86,7 @@ class CategoriesView(ft.Container):
             self.selected_id = None
             self.refresh_data()
             
-        form = CategoryForm(e.page, on_success=on_success)
+        form = CategoryForm(e.page, on_success=on_success, current_user=self.current_user)
         form.open_dialog()
 
     def _open_modify_modal(self, e):
@@ -57,7 +94,7 @@ class CategoriesView(ft.Container):
             self._show_alert("Selecciona una categoría para modificar", is_error=True)
             return
 
-        categories = controller.get_all_categories()
+        categories = controller.get_all_categories(self.current_user)
         selected_cat = next((c for c in categories if c.id == self.selected_id), None)
 
         if selected_cat:
@@ -71,7 +108,7 @@ class CategoriesView(ft.Container):
                 self.selected_id = None
                 self.refresh_data()
 
-            form = CategoryForm(e.page, category_data=cat_dict, on_success=on_success)
+            form = CategoryForm(e.page, category_data=cat_dict, on_success=on_success, current_user=self.current_user)
             form.open_dialog()
 
     def _delete_handler(self, e):
@@ -208,39 +245,4 @@ class CategoriesView(ft.Container):
             self.selected_id = cat_id
         self.refresh_data()
 
-    def refresh_data(self):
-        categories = controller.get_all_categories()
 
-        if categories and len(categories) > 0:
-            cards = []
-            for cat in categories:
-                cards.append(self._build_card(cat))
-
-            self.data_container.alignment = ft.alignment.top_center
-            self.data_container.content = ft.ListView(
-                controls=cards,
-                spacing=15,
-                padding=ft.padding.only(bottom=20)
-            )
-        else:
-            self.data_container.alignment = ft.alignment.center
-            self.data_container.content = ft.Column(
-                controls=[
-                    ft.Icon(
-                        name=ft.Icons.CATEGORY_OUTLINED,
-                        size=60,
-                        color=ft.Colors.GREY_300
-                    ),
-                    ft.Text(
-                        "No hay categorías registradas.",
-                        color=ft.Colors.GREY_500,
-                        size=16
-                    )
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                alignment=ft.MainAxisAlignment.CENTER,
-                spacing=10
-            )
-        
-        if self.data_container.page:
-            self.data_container.update()

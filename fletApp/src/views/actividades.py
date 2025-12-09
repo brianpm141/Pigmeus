@@ -6,10 +6,11 @@ from views.pops.eliminar import ConfirmationDialog
 from controllers.actividades_controller import get_activities, update_activity_status, delete_activity
 
 class ActividadesView(ft.Container):
-    def __init__(self):
+    def __init__(self, current_user=None):
         super().__init__()
         self.expand = True
         self.padding = ft.padding.all(30)
+        self.current_user = current_user
         
         # Inicializar componentes (toolbar, data_container)
         self._init_layout_components()
@@ -66,7 +67,7 @@ class ActividadesView(ft.Container):
         self.refresh_data()
 
     def _open_register_modal(self, e):
-        form = ActivityForm(e.page, on_success=self.refresh_data)
+        form = ActivityForm(e.page, on_success=self.refresh_data, current_user=self.current_user)
         form.open_dialog()
 
     def _open_modify_modal(self, e):
@@ -90,7 +91,7 @@ class ActividadesView(ft.Container):
                 "estado": "Completada" if selected_act.estado == 1 else "Pendiente"
             }
             
-            form = ActivityForm(e.page, activity_data=act_data, on_success=self.refresh_data)
+            form = ActivityForm(e.page, activity_data=act_data, on_success=self.refresh_data, current_user=self.current_user)
             form.open_dialog()
 
     def _mark_completed(self, e):
@@ -158,7 +159,7 @@ class ActividadesView(ft.Container):
         self.data_container = ft.Container()
 
     def refresh_data(self):
-        activities = get_activities()
+        activities = get_activities(self.current_user)
         
         if activities:
             rows_data = []
