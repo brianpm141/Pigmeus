@@ -19,20 +19,29 @@ def get_all_users(current_user=None, filter_dept_id=None):
         
         # Filtrado por Rol
         if current_user:
-             # Caso A: Usuario
+             # Caso A: Usuario Normal (Restringido a su depto si no es Admin/Gerente? El prompt no especifica restricción cruzada)
+             # Para colaboradores, asumimos que se puede colaborar con cualquiera.
+             # Pero mantenemos la lógica base:
              if hasattr(current_user, 'role'):
                  role_str = str(current_user.role.value) if hasattr(current_user.role, 'value') else str(current_user.role)
                  
-                 if "Administrador" not in role_str:
+                 # Si se pasa un filtro explicito, lo usamos (útil para dropdowns dinámicos)
+                 if filter_dept_id:
+                     query = query.filter(Usuario.departamento_id == int(filter_dept_id))
+                 
+                 # Si NO hay filtro explicito y NO es Admin/Gerente, restringir (comportamiento default anterior)
+                 elif "Administrador" not in role_str and "Gerente" not in role_str:
+                     # Nota: Si queremos permitir ver todos para colaborar, quitamos esto o lo ajustamos.
+                     # Por ahora, si no pasan filtro, filtra por su depto.
                      query = query.filter(Usuario.departamento_id == current_user.departamento_id)
-                 else:
-                     # Si es Admin y tiene filtro explicito
-                     if filter_dept_id and filter_dept_id != "all":
-                         query = query.filter(Usuario.departamento_id == filter_dept_id)
             
              # Caso B: Departamento (Invitado)
              elif hasattr(current_user, 'code'):
                  query = query.filter(Usuario.departamento_id == current_user.id)
+        
+        # Si no hay current_user (llamada interna sin auth context?), o si se paso filter_dept_id sin current_user
+        elif filter_dept_id:
+             query = query.filter(Usuario.departamento_id == int(filter_dept_id))
         
         users = query.order_by(Usuario.nombre.asc()).all()
         

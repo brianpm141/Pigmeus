@@ -2,7 +2,7 @@ import bcrypt
 from datetime import datetime
 from sqlalchemy.orm import Session, joinedload
 from db.database import get_db
-from db.models import Actividad, Usuario, Categoria, Departamento, Proyecto
+from db.models import Actividad, Usuario, Categoria, Departamento, Proyecto, Colaborador
 
 # ==========================================
 # LECTURA (READ)
@@ -14,7 +14,8 @@ def get_activities(current_user=None, filter_dept_id=None):
         query = db.query(Actividad).options(
             joinedload(Actividad.usuario_rel).joinedload(Usuario.departamento),
             joinedload(Actividad.categoria_rel).joinedload(Categoria.departamento_rel),
-            joinedload(Actividad.proyecto_rel)
+            joinedload(Actividad.proyecto_rel),
+            joinedload(Actividad.colaboradores).joinedload(Colaborador.usuario_rel) # <--- Cargar colaboradores
         ).filter(Actividad.status == 1)
         
         # Filtrado por Rol / Contexto
@@ -26,16 +27,18 @@ def get_activities(current_user=None, filter_dept_id=None):
                  # Si ES Admin y hay filtro explicito -> aplicarlo
                  if "Administrador" in role_str:
                      if filter_dept_id and filter_dept_id != "all":
-                         query = query.join(Usuario).filter(Usuario.departamento_id == filter_dept_id)
+                         query = query.join(Usuario, Actividad.usuario_rel).filter(Usuario.departamento_id == filter_dept_id)
                  
                  # Si NO es Admin -> Filtrar por su depto (Seguridad base)
                  else:
-                     query = query.join(Usuario).filter(Usuario.departamento_id == current_user.departamento_id)
+                     # Nota: Si queremos ver actividades donde colaboren aunque sean de otro depto, la query sería más compleja.
+                     # Por simplicidad y seguridad: Vemos las del departamento del dueño.
+                     query = query.join(Usuario, Actividad.usuario_rel).filter(Usuario.departamento_id == current_user.departamento_id)
              
              # Caso B: Es un objeto Departamento (Login Invitado)
              elif hasattr(current_user, 'code') and not hasattr(current_user, 'role'):
                  dept_id = current_user.id
-                 query = query.join(Usuario).filter(Usuario.departamento_id == dept_id)
+                 query = query.join(Usuario, Actividad.usuario_rel).filter(Usuario.departamento_id == dept_id)
 
         activities = query.order_by(Actividad.created_at.desc()).all()
         return activities
@@ -49,7 +52,7 @@ def get_activities(current_user=None, filter_dept_id=None):
 # ESCRITURA (CREATE)
 # ==========================================
 
-def create_activity(user_id: int, password_attempt: str, category_id: int, details: str, status_str: str, skip_password_check=False):
+def create_activity(user_id: int, password_attempt: str, category_id: int, details: str, status_str: str, collaborator_ids: list = None, skip_password_check=False):
     db: Session = next(get_db())
     try:
         # 1. Validar Usuario y Contraseña
@@ -93,6 +96,21 @@ def create_activity(user_id: int, password_attempt: str, category_id: int, detai
         )
         
         db.add(new_activity)
+        db.flush() # ID necesario para colaboradores
+        
+        # 5. Agregar Colaboradores
+        if collaborator_ids:
+            for c_id in collaborator_ids:
+                # Evitar agregarse a sí mismo como colaborador? (Opcional, pero lógico)
+                if c_id == user.id: continue
+                
+                new_collab = Colaborador(
+                    actividad_id=new_activity.id,
+                    usuario_id=c_id,
+                    status=1
+                )
+                db.add(new_collab)
+
         db.commit()
         
         return {"status": "success", "message": "Actividad registrada correctamente."}
@@ -137,7 +155,7 @@ def update_activity_status(activity_id: int, new_status_str: str):
     finally:
         db.close()
 
-def update_activity(activity_id: int, category_id: int, details: str, status_str: str):
+def update_activity(activity_id: int, category_id: int, details: str, status_str: str, collaborator_ids: list = None):
     db: Session = next(get_db())
     try:
         activity = db.query(Actividad).filter(Actividad.id == activity_id).first()
@@ -156,6 +174,21 @@ def update_activity(activity_id: int, category_id: int, details: str, status_str
         activity.descripcion = details
         activity.estado = estado_int
         
+        # Actualizar Colaboradores: Estrategia Delete All + Re-Insert
+        # Borramos colaboradores previos de esta actividad
+        db.query(Colaborador).filter(Colaborador.actividad == activity_id).delete()
+        
+        if collaborator_ids:
+            for c_id in collaborator_ids:
+                if c_id == activity.usuario_id: continue # No agregarse a sí mismo
+                
+                new_collab = Colaborador(
+                    actividad_id=activity_id,
+                    usuario_id=c_id, # DB model map: usuario_id -> 'usuario' column
+                    status=1
+                )
+                db.add(new_collab)
+
         db.commit()
         return {"status": "success", "message": "Actividad actualizada."}
     except Exception as e:
