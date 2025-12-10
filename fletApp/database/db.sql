@@ -79,6 +79,26 @@ Table actividades {
   created_at timestamptz [default: `now()`]
 }
 
+Table colaborador {
+  id integer [primary key]
+  actividad integer [not null]
+  usuario integer [not null]
+  status integer [default: 1]
+  created_at timestamptz [default: `now()`]
+}
+
+Table pendientes {
+  id integer [primary key]
+  descripcion varchar(120) [not null]
+  fecha_asignada timestamptz [null]
+  fecha_completada timestamptz [null]
+  estado integer [default: 0, note: "0=Pendiente, 1=Completa"]
+  categoria integer [not null]
+  usuario integer [not null]
+  status integer [default: 1]
+  created_at timestamptz [default: `now()`]
+}
+
 // --- RELACIONES ---
 
 // 1 a 1 (Usuario - Password)
@@ -100,3 +120,9 @@ Ref: proyectos.responsable_id > usuarios.id
 Ref: actividades.usuario_id > usuarios.id
 Ref: actividades.categoria_id > categorias.id
 Ref: actividades.proyecto_id > proyectos.id
+
+Ref: colaborador.actividad > actividades.id
+Ref: colaborador.usuario > usuarios.id
+
+Ref: pendientes.usuario > usuarios.id
+Ref: pendientes.categoria > categorias.id

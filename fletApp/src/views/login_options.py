@@ -73,8 +73,8 @@ class LoginOptionsView(ft.Container):
         )
 
     def _build_login_form(self):
-        self.user_input = ft.TextField(label="Usuario", width=250, border_radius=8)
-        self.pass_input = ft.TextField(label="Contraseña", width=250, password=True, can_reveal_password=True, border_radius=8)
+        self.user_input = ft.TextField(label="Usuario", width=250, border_radius=8, on_submit=self._verify_login)
+        self.pass_input = ft.TextField(label="Contraseña", width=250, password=True, can_reveal_password=True, border_radius=8, on_submit=self._verify_login)
         self.login_error = ft.Text("", color="red", size=12)
 
         return ft.Column(
@@ -142,7 +142,8 @@ class LoginOptionsView(ft.Container):
             width=250,
             text_align=ft.TextAlign.CENTER,
             border_radius=8,
-            keyboard_type=ft.KeyboardType.NUMBER
+            keyboard_type=ft.KeyboardType.NUMBER,
+            on_submit=self._verify_code
         )
         self.code_error = ft.Text("", color="red", size=12)
 

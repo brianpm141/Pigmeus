@@ -41,12 +41,13 @@ class CategoriesView(ft.Container):
             for cat in categories:
                 cards.append(self._build_card(cat))
 
-            self.data_container.alignment = ft.alignment.top_center
-            self.data_container.content = ft.ListView(
+            self.cards_column = ft.ListView(
                 controls=cards,
                 spacing=15,
                 padding=ft.padding.only(bottom=20)
             )
+            self.data_container.alignment = ft.alignment.top_center
+            self.data_container.content = self.cards_column
         else:
             self.data_container.alignment = ft.alignment.center
             self.data_container.content = ft.Column(
@@ -214,19 +215,18 @@ class CategoriesView(ft.Container):
             from controllers.departamentos_controller import get_all_departments
             depts = get_all_departments()
             
-            options = [ft.dropdown.Option("all", "Todos")]
+            options = [ft.dropdown.Option("all", "Todos los Departamentos")]
             for d in depts:
                 options.append(ft.dropdown.Option(str(d.id), d.nombre))
             
             self.dept_filter = ft.Dropdown(
-                width=200,
-                label="Filtrar por Departamento",
-                label_style=ft.TextStyle(color=styles.TEXT_COLOR, size=12),
-                text_style=ft.TextStyle(color=styles.TEXT_COLOR, size=14),
-                border_color=styles.PRIMARY_BLUE,
-                border_radius=8,
+                width=250,
+                text_size=14,
                 content_padding=10,
-                focused_border_color=styles.PRIMARY_BLUE,
+                filled=True,
+                bgcolor=ft.Colors.GREY_100,
+                border_color=ft.Colors.TRANSPARENT,
+                border_radius=8,
                 value="all",
                 options=options,
                 on_change=lambda e: self.refresh_data()
@@ -269,7 +269,8 @@ class CategoriesView(ft.Container):
             shadow=styles.CARD_SHADOW if not is_selected else None,
             border=ft.border.all(2, styles.PRIMARY_BLUE) if is_selected else None,
             on_click=lambda e: self._on_card_click(cat.id),
-            ink=True
+            ink=True,
+            data=cat.id # Importante
         )
 
     def _on_card_click(self, cat_id):
@@ -277,6 +278,15 @@ class CategoriesView(ft.Container):
             self.selected_id = None
         else:
             self.selected_id = cat_id
-        self.refresh_data()
+            
+        # Actualización visual optimizada
+        if hasattr(self, 'cards_column') and self.cards_column:
+            for card in self.cards_column.controls:
+                is_selected = (card.data == self.selected_id)
+                card.border = ft.border.all(2, styles.PRIMARY_BLUE) if is_selected else None
+                card.shadow = None if is_selected else styles.CARD_SHADOW
+            self.cards_column.update()
+        else:
+            self.refresh_data()
 
 

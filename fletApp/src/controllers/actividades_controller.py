@@ -12,8 +12,8 @@ def get_activities(current_user=None, filter_dept_id=None):
     db: Session = next(get_db())
     try:
         query = db.query(Actividad).options(
-            joinedload(Actividad.usuario_rel),
-            joinedload(Actividad.categoria_rel),
+            joinedload(Actividad.usuario_rel).joinedload(Usuario.departamento),
+            joinedload(Actividad.categoria_rel).joinedload(Categoria.departamento_rel),
             joinedload(Actividad.proyecto_rel)
         ).filter(Actividad.status == 1)
         

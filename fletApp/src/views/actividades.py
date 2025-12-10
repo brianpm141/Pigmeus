@@ -58,13 +58,27 @@ class ActividadesView(ft.Container):
         is_selected = e.data == "true"
         act_id = e.control.data 
         
+        # Actualizar ID seleccionado
         if is_selected:
             self.selected_id = act_id
         else:
             if self.selected_id == act_id:
                 self.selected_id = None
         
-        self.refresh_data()
+        # Actualizar visualmente la tabla sin reconstruir (mantiene scroll)
+        if hasattr(self, 'table') and self.table:
+            for row in self.table.rows:
+
+                if row.data == act_id:
+                    row.selected = is_selected
+                else:
+                    if is_selected:
+                        row.selected = False
+            
+            self.table.update()
+        
+        # NO llamamos refresh_data() completo para evitar scroll jump
+        # self.refresh_data()
 
     def _open_register_modal(self, e):
         form = ActivityForm(e.page, on_success=self.refresh_data, current_user=self.current_user)
@@ -222,12 +236,17 @@ class ActividadesView(ft.Container):
                 # --- 1. USUARIO ---
                 user_nombre = act.usuario_rel.nombre if act.usuario_rel else "Desconocido"
                 
-                # Limpiar "De [Departamento]" del apellido
+                # Limpiar "De [Departamento]" del apellido dinámicamente
                 raw_apellido = act.usuario_rel.apellidos if act.usuario_rel else ""
                 user_apellido = raw_apellido
-                for d_name in ["De Ventas", "De RH", "De Desarrollo"]:
-                    user_apellido = user_apellido.replace(d_name, "").strip()
                 
+                # Obtener nombre del depto del usuario
+                if act.usuario_rel and act.usuario_rel.departamento:
+                    dept_name = act.usuario_rel.departamento.nombre
+                    # Construir sufijo a remover: "De Ventas", "De RH"
+                    suffix = f"De {dept_name}"
+                    user_apellido = user_apellido.replace(suffix, "").strip()
+
                 user_column = ft.Column(
                     controls=[
                         ft.Text(user_nombre, weight=ft.FontWeight.BOLD, size=14, color=styles.TEXT_COLOR),
@@ -248,8 +267,13 @@ class ActividadesView(ft.Container):
                 # --- 2. CATEGORIA ---
                 raw_cat = act.categoria_rel.nombre if act.categoria_rel else "General"
                 cat_name = raw_cat
-                for badge in [" Ventas", " RH", " Desarrollo"]:
-                    cat_name = cat_name.replace(badge, "").strip()
+                
+                # Limpiar Nombre Depto de la Categoria dinámicamente
+                if act.categoria_rel and act.categoria_rel.departamento_rel:
+                    cat_dept_name = act.categoria_rel.departamento_rel.nombre
+                    # Remover nombre del depto si aparece en la categoria
+                    # Ejemplo: "Urgencias Ventas" -> "Urgencias"
+                    cat_name = cat_name.replace(cat_dept_name, "").strip()
 
                 cat_cell = ft.Container(
                     content=ft.Text(cat_name, size=14, color=ft.Colors.GREY_700),
@@ -310,7 +334,7 @@ class ActividadesView(ft.Container):
                 )
             
             # Insertar tabla en el card
-            content_card.content.controls[2] = ft.DataTable(
+            self.table = ft.DataTable(
                 width=float("inf"),
                 heading_row_height=60,
                 # CONFIGURACIÓN CLAVE PARA EL ESPACIADO CORRECTO
@@ -329,6 +353,7 @@ class ActividadesView(ft.Container):
                 ],
                 rows=rows_data
             )
+            content_card.content.controls[2] = self.table
         else:
             # Empty State
             content_card.content.controls[2] = ft.Container(
