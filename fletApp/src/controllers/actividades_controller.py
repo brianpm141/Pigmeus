@@ -29,11 +29,13 @@ def get_activities(current_user=None, filter_dept_id=None):
                      if filter_dept_id and filter_dept_id != "all":
                          query = query.join(Usuario, Actividad.usuario_rel).filter(Usuario.departamento_id == filter_dept_id)
                  
-                 # Si NO es Admin -> Filtrar por su depto (Seguridad base)
-                 else:
-                     # Nota: Si queremos ver actividades donde colaboren aunque sean de otro depto, la query sería más compleja.
-                     # Por simplicidad y seguridad: Vemos las del departamento del dueño.
+                 # Si ES Gerente -> Ver todo su departamento
+                 elif "Gerente" in role_str:
                      query = query.join(Usuario, Actividad.usuario_rel).filter(Usuario.departamento_id == current_user.departamento_id)
+
+                 # Si ES Básico -> Ver SOLO sus actividades
+                 else:
+                     query = query.filter(Actividad.usuario_id == current_user.id)
              
              # Caso B: Es un objeto Departamento (Login Invitado)
              elif hasattr(current_user, 'code') and not hasattr(current_user, 'role'):
@@ -176,7 +178,7 @@ def update_activity(activity_id: int, category_id: int, details: str, status_str
         
         # Actualizar Colaboradores: Estrategia Delete All + Re-Insert
         # Borramos colaboradores previos de esta actividad
-        db.query(Colaborador).filter(Colaborador.actividad == activity_id).delete()
+        db.query(Colaborador).filter(Colaborador.actividad_id == activity_id).delete()
         
         if collaborator_ids:
             for c_id in collaborator_ids:

@@ -1,6 +1,7 @@
 import flet as ft
 import views.styles as styles
 from views.pops.actividad import ActivityForm
+from views.pops.actividad_detalles import ActivityDetails
 from views.pops.mensaje import Aviso
 from views.pops.eliminar import ConfirmationDialog
 from controllers.actividades_controller import get_activities, update_activity_status, delete_activity
@@ -88,22 +89,7 @@ class ActividadesView(ft.Container):
         if not self.selected_id:
             Aviso(self.page, "Selecciona una actividad para modificar", is_error=True).show()
             return
-        
-        activities = get_activities()
-        selected_act = next((a for a in activities if a.id == self.selected_id), None)
-        
-        if selected_act:
-            # Preparar dict para el form
-            act_data = {
-                "id": selected_act.id,
-                "usuario_id": selected_act.usuario_id,
-                "categoria": selected_act.categoria_id, 
-                "detalles": selected_act.descripcion,
-                "estado": "Completada" if selected_act.estado == 1 else "Pendiente"
-            }
-            
-            form = ActivityForm(e.page, activity_data=act_data, on_success=self.refresh_data, current_user=self.current_user)
-            form.open_dialog()
+        self._open_modify_logic(self.selected_id)
 
     def _mark_completed(self, e):
         if not self.selected_id:
@@ -118,6 +104,58 @@ class ActividadesView(ft.Container):
             Aviso(self.page, res["message"], is_error=True).show()
 
     # --- UI LAYOUT ---
+
+    def _open_details_modal(self, e):
+        if not self.selected_id:
+            Aviso(self.page, "Selecciona una actividad para ver detalles.", is_error=True).show()
+            return
+
+        # Fetch fresh data
+        activities = get_activities()
+        selected_act = next((a for a in activities if a.id == self.selected_id), None)
+        
+        if selected_act:
+            details_dialog = ActivityDetails(
+                self.page, 
+                selected_act, 
+                current_user=self.current_user,
+                on_edit=lambda id: self._open_modify_from_details(id),
+                on_delete=lambda id: self._open_delete_confirmation(id)
+            )
+            details_dialog.open_dialog()
+
+    def _open_modify_from_details(self, act_id):
+        self.selected_id = act_id
+        self._open_modify_logic(act_id)
+
+    def _open_delete_confirmation(self, act_id):
+        def on_confirm():
+            res = delete_activity(act_id)
+            if res["status"] == "success":
+                self.refresh_data()
+                Aviso(self.page, "Actividad eliminada.").show()
+            else:
+                Aviso(self.page, res["message"], is_error=True).show()
+        
+        confirm = ConfirmationDialog(self.page, "Eliminar Actividad", "¿Estás seguro de que quieres eliminar esta actividad?", on_confirm)
+        confirm.open_dialog()
+
+    def _open_modify_logic(self, act_id):
+        activities = get_activities()
+        selected_act = next((a for a in activities if a.id == act_id), None)
+        
+        if selected_act:
+            act_data = {
+                "id": selected_act.id,
+                "usuario_id": selected_act.usuario_id,
+                "categoria": selected_act.categoria_id, 
+                "detalles": selected_act.descripcion,
+                "estado": "Completada" if selected_act.estado == 1 else "Pendiente",
+                "colaboradores": [{"id": c.usuario_id, "nombre": f"{c.usuario_rel.nombre} {c.usuario_rel.apellidos}"} for c in selected_act.colaboradores if c.usuario_rel]
+            }
+            
+            form = ActivityForm(self.page, activity_data=act_data, on_success=self.refresh_data, current_user=self.current_user)
+            form.open_dialog()
 
     def _init_layout_components(self):
         # 1. Top Header Area (Page Title + Global Filter)
@@ -170,7 +208,7 @@ class ActividadesView(ft.Container):
         self.btn_register = ft.ElevatedButton(
             "Registrar",
             icon=ft.Icons.ADD_CIRCLE_OUTLINE,
-            bgcolor=styles.BTN_PRIMARY_BG,
+            bgcolor=styles.BTN_COMPLETE_BG, # Verde
             color=ft.Colors.WHITE,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=8),
@@ -182,8 +220,8 @@ class ActividadesView(ft.Container):
         self.btn_complete = ft.ElevatedButton(
             "Completar",
             icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
-            bgcolor=styles.BTN_COMPLETE_BG, 
-            color=styles.BTN_TEXT_WHITE,
+            bgcolor=styles.BTN_MODIFY_BG, # Amarillo
+            color=ft.Colors.WHITE,
             style=ft.ButtonStyle(
                 shape=ft.RoundedRectangleBorder(radius=8),
                 padding=ft.padding.symmetric(horizontal=20, vertical=18)
@@ -197,6 +235,18 @@ class ActividadesView(ft.Container):
                 ft.Text("Registro de Actividades", size=20, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR),
                 ft.Container(expand=True),
                 self.btn_register,
+                # Botón Ver Detalles
+                ft.ElevatedButton(
+                    "Ver Detalles",
+                    icon=ft.Icons.VISIBILITY,
+                    bgcolor=styles.BTN_PRIMARY_BG, # Azul
+                    color=ft.Colors.WHITE,
+                    style=ft.ButtonStyle(
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                        padding=ft.padding.symmetric(horizontal=20, vertical=18)
+                    ),
+                    on_click=self._open_details_modal
+                ),
                 self.btn_complete
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,

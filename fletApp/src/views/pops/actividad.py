@@ -109,10 +109,6 @@ class ActivityForm(ft.AlertDialog):
 
         # --- SECCIÓN COLABORADORES ---
         
-        # --- SECCIÓN COLABORADORES (Componentes) ---
-        
-        # --- SECCIÓN COLABORADORES (Componentes) ---
-        
         self.btn_add_collab = ft.TextButton(
             "Añadir Colaborador",
             icon=ft.Icons.PERSON_ADD,
@@ -225,6 +221,8 @@ class ActivityForm(ft.AlertDialog):
         ]
 
         # Columna Derecha: Colaboradores
+        has_collabs = len(self.selected_collabs) > 0
+
         self.right_column_content = ft.Column(
             [
                 ft.Text("Equipo:", size=14, weight=ft.FontWeight.BOLD, color=styles.TEXT_COLOR),
@@ -235,10 +233,10 @@ class ActivityForm(ft.AlertDialog):
             ],
             width=250, 
             scroll=ft.ScrollMode.AUTO,
-            visible=False # Inicialmente oculto
+            visible=has_collabs # Visible si hay colaboradores iniciales
         )
         
-        self.vertical_divider = ft.VerticalDivider(width=30, color=ft.Colors.GREY_200, visible=False)
+        self.vertical_divider = ft.VerticalDivider(width=30, color=ft.Colors.GREY_200, visible=has_collabs)
 
         self.content_container = ft.Container(
             content=ft.Row(
@@ -251,7 +249,7 @@ class ActivityForm(ft.AlertDialog):
                 alignment=ft.MainAxisAlignment.START,
                 vertical_alignment=ft.CrossAxisAlignment.START
             ),
-            width=500, # Initial small width
+            width=800 if has_collabs else 500, # Initial width based on content
             height=500,
             animate=ft.Animation(300, ft.AnimationCurve.EASE_OUT) # Animación de resize suave
         )
@@ -418,7 +416,8 @@ class ActivityForm(ft.AlertDialog):
             )
             self.collab_list_view.controls.append(row)
         
-        self.collab_list_view.update()
+        if self.collab_list_view.page:
+            self.collab_list_view.update()
 
     def _remove_collab(self, collab_id):
         self.selected_collabs = [c for c in self.selected_collabs if c["id"] != collab_id]
