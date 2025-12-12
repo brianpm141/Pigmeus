@@ -4,7 +4,10 @@ from views.pops.actividad import ActivityForm
 from views.pops.actividad_detalles import ActivityDetails
 from views.pops.mensaje import Aviso
 from views.pops.eliminar import ConfirmationDialog
+from views.pops.eliminar import ConfirmationDialog
 from controllers.actividades_controller import get_activities, update_activity_status, delete_activity
+from controllers.usuarios_controller import get_all_users
+from controllers.categorias_controller import get_all_categories
 
 class ActividadesView(ft.Container):
     def __init__(self, current_user=None):
@@ -28,6 +31,13 @@ class ActividadesView(ft.Container):
 
         # Estado: ID seleccionado
         self.selected_id = None
+        
+        # Estados de Filtros de Columna
+        self.filter_user_val = "all"
+        self.filter_cat_val = "all"
+        self.filter_status_val = "all"
+        self.sort_field = "created_at"
+        self.sort_desc = True
         
         # Cargar datos
         self.refresh_data()
@@ -257,7 +267,15 @@ class ActividadesView(ft.Container):
 
     def refresh_data(self):
         dept_filter_val = self.dept_filter.value if self.dept_filter else None
-        activities = get_activities(self.current_user, filter_dept_id=dept_filter_val)
+        activities = get_activities(
+            self.current_user, 
+            filter_dept_id=dept_filter_val,
+            filter_user_id=self.filter_user_val,
+            filter_category_id=self.filter_cat_val,
+            filter_status_int=self.filter_status_val,
+            sort_by=self.sort_field,
+            sort_desc=self.sort_desc
+        )
         
         # Reconstruir el contenido principal cada vez
         content_card = ft.Container(
@@ -383,6 +401,186 @@ class ActividadesView(ft.Container):
                     )
                 )
             
+            # -- PREPARAR OPCIONES DE FILTROS --
+            # Usuarios (Filtrados por contexto)
+            
+            is_basic_role = False
+            role_str = ""
+            if self.current_user and hasattr(self.current_user, 'role'):
+                 role_str = str(self.current_user.role.value) if hasattr(self.current_user.role, 'value') else str(self.current_user.role)
+                 is_basic_role = "Básico" in role_str
+            
+            # Determinar Header de Usuario
+            user_header_control = ft.Text("USUARIO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)
+            
+            # Solo Admins y Gerentes ven el filtro
+            if not is_basic_role:
+                users_opts = [ft.dropdown.Option("all", "Todos")]
+                
+                filter_dept_arg = None
+                
+                # Logic:
+                # If Admin -> Use current global dept filter value (self.dept_filter.value)
+                if "Administrador" in role_str:
+                     # Check global filter
+                     if self.dept_filter and self.dept_filter.value != "all":
+                         filter_dept_arg = self.dept_filter.value
+                
+                # If Manager -> Actividades controller already forces them to see only their dept activities.
+                # get_all_users should also only return their dept users.
+                elif "Gerente" in role_str:
+                     filter_dept_arg = self.current_user.departamento_id
+
+                # Determinar si ocultar el sufijo de departamento
+                hide_dept_suffix = False
+                if "Administrador" not in role_str:
+                    # Gerentes/Básicos/Invitados siempre ven solo su depto -> ocultar
+                    hide_dept_suffix = True
+                else:
+                    # Admin: ocultar solo si hay un filtro activo
+                    if filter_dept_arg and filter_dept_arg != "all":
+                        hide_dept_suffix = True
+
+                relevant_users = get_all_users(dept_id=filter_dept_arg)
+                
+                for u in relevant_users:
+                     # Limpiar nombre base (por si acaso los usuarios tuvieran el depto en el nombre)
+                     raw_name = f"{u.nombre} {u.apellidos}"
+                     dept_name = u.departamento.nombre if u.departamento else ""
+                     
+                     clean_name = raw_name
+                     if dept_name and dept_name.lower() in raw_name.lower():
+                         import re
+                         # Remove dept_name from raw_name, case insensitive
+                         clean_name = re.sub(re.escape(dept_name), "", raw_name, flags=re.IGNORECASE).strip()
+                         # Clean up trailing " de" (case insensitive) -> e.g. "Usuario1 De" -> "Usuario1"
+                         clean_name = re.sub(r'\s+de\s*$', '', clean_name, flags=re.IGNORECASE).strip()
+                         
+                     if hide_dept_suffix:
+                         label = clean_name
+                     else:
+                         if dept_name:
+                             label = f"{clean_name} ({dept_name})"
+                         else:
+                             label = raw_name
+                     
+                     users_opts.append(ft.dropdown.Option(str(u.id), label))
+                
+                def on_user_filter_change(e):
+                    self.filter_user_val = e.control.value
+                    self.refresh_data()
+
+                user_header_control = ft.Container(
+                    ft.Dropdown(
+                        options=users_opts,
+                        value=self.filter_user_val,
+                        text_size=12,
+                        content_padding=5,
+                        border_width=0,
+                        hint_text="Usuario",
+                        on_change=on_user_filter_change
+                    ),
+                    width=150, padding=0
+                )
+
+            # Categorias
+            cat_opts = [ft.dropdown.Option("all", "Todas")]
+            
+            # Determinar filtro de departamento para categorías
+            cat_dept_filter = None
+            if self.dept_filter:
+                cat_dept_filter = self.dept_filter.value
+
+            relevant_cats = get_all_categories(self.current_user, filter_dept_id=cat_dept_filter) 
+            
+            # Recalcular flag para categorías (aunque debería ser igual)
+            hide_cat_dept_suffix = False
+            if "Administrador" not in role_str:
+                hide_cat_dept_suffix = True
+            else:
+                if cat_dept_filter and cat_dept_filter != "all":
+                    hide_cat_dept_suffix = True
+
+            for c in relevant_cats:
+                raw_name = c.nombre
+                dept_name = c.departamento_rel.nombre if c.departamento_rel else ""
+                
+                # Normalizar nombre: Quitar el nombre del departamento si está incluido en el nombre de la categoría
+                # Ejemplo: "General Recursos Humanos" -> "General"
+                # Usamos replace insensible a mayúsculas si fuera necesario, pero por ahora simple
+                clean_name = raw_name
+                if dept_name and dept_name.lower() in raw_name.lower():
+                     # Reemplazo simple intentando preservar casing original del resto
+                     # Una forma robusta es usar regex re.sub(dept_name, "", raw_name, flags=re.IGNORECASE)
+                     import re
+                     clean_name = re.sub(re.escape(dept_name), "", raw_name, flags=re.IGNORECASE).strip()
+                
+                if hide_cat_dept_suffix:
+                    # Si estamos filtrados, mostrar solo el nombre limpio
+                    label = clean_name
+                else:
+                    # Si vista general, mostrar formato "Nombre (Depto)"
+                    # Si el nombre original YA tenía el depto, clean_name lo quitó, ahora lo ponemos en paréntesis
+                    if dept_name:
+                        label = f"{clean_name} ({dept_name})"
+                    else:
+                        label = raw_name
+
+                cat_opts.append(ft.dropdown.Option(str(c.id), label))
+
+            # Status
+            status_opts = [
+                ft.dropdown.Option("all", "Todos"),
+                ft.dropdown.Option("0", "Pendientes"),
+                ft.dropdown.Option("1", "Completadas"),
+            ]
+
+            # --- HEADER WIDGETS ---
+            def on_filter_change(e, filter_type):
+                val = e.control.value
+                if filter_type == "cat": self.filter_cat_val = val
+                elif filter_type == "status": self.filter_status_val = val
+                self.refresh_data()
+            
+            cat_header = ft.Dropdown(
+                options=cat_opts,
+                value=self.filter_cat_val,
+                text_size=12,
+                content_padding=5,
+                border_width=0,
+                 hint_text="Categoría",
+                on_change=lambda e: on_filter_change(e, "cat")
+            )
+            
+            status_header = ft.Dropdown(
+                options=status_opts,
+                value=self.filter_status_val,
+                text_size=12,
+                content_padding=5,
+                border_width=0,
+                 hint_text="Estado",
+                on_change=lambda e: on_filter_change(e, "status")
+            )
+            
+            # Sorting Header Click
+            def on_sort_col(e):
+                idx = e.column_index
+                # Map index to Sort Field
+                # 4=Inicio, 5=Cierre
+                new_sort_field = "created_at"
+                if idx == 4: new_sort_field = "horainicio"
+                elif idx == 5: new_sort_field = "horacierre"
+                else: return # Only sort date columns requested
+                
+                # Toggle direction if clicking same field
+                if self.sort_field == new_sort_field:
+                    self.sort_desc = not self.sort_desc
+                else:
+                    self.sort_field = new_sort_field
+                    self.sort_desc = True # Default desc for new field
+                
+                self.refresh_data()
+
             # Insertar tabla en el card
             self.table = ft.DataTable(
                 width=float("inf"),
@@ -393,13 +591,27 @@ class ActividadesView(ft.Container):
                 column_spacing=20,
                 divider_thickness=0.5,
                 show_checkbox_column=False,
+                sort_column_index=4 if self.sort_field == "horainicio" else (5 if self.sort_field == "horacierre" else None),
+                sort_ascending=not self.sort_desc,
                 columns=[
-                    ft.DataColumn(ft.Text("USUARIO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
-                    ft.DataColumn(ft.Text("CATEGORÍA", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
+                    ft.DataColumn(
+                        user_header_control
+                    ),
+                    ft.DataColumn(
+                         ft.Container(cat_header, width=120, padding=0),
+                    ),
                     ft.DataColumn(ft.Text("DETALLES", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
-                    ft.DataColumn(ft.Text("ESTADO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
-                    ft.DataColumn(ft.Text("INICIO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
-                    ft.DataColumn(ft.Text("CIERRE", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
+                    ft.DataColumn(
+                         ft.Container(status_header, width=110, padding=0),
+                    ),
+                    ft.DataColumn(
+                        ft.Text("INICIO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD),
+                        on_sort=on_sort_col
+                    ),
+                    ft.DataColumn(
+                        ft.Text("CIERRE", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD),
+                        on_sort=on_sort_col
+                    ),
                 ],
                 rows=rows_data
             )

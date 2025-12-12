@@ -9,7 +9,10 @@ from db.models import Usuario, Password, Departamento, UserRole
 # LECTURA (READ)
 # ==========================================
 
-def get_all_users(current_user=None, filter_dept_id=None):
+def get_all_users(current_user=None, filter_dept_id=None, dept_id=None):
+    # Support both filter_dept_id and dept_id for backwards compatibility/view convenience
+    final_dept_filter = dept_id if dept_id else filter_dept_id
+
     db: Session = next(get_db())
     try:
         query = db.query(Usuario).options(
@@ -26,8 +29,8 @@ def get_all_users(current_user=None, filter_dept_id=None):
                  role_str = str(current_user.role.value) if hasattr(current_user.role, 'value') else str(current_user.role)
                  
                  # Si se pasa un filtro explicito, lo usamos (útil para dropdowns dinámicos)
-                 if filter_dept_id:
-                     query = query.filter(Usuario.departamento_id == int(filter_dept_id))
+                 if final_dept_filter:
+                     query = query.filter(Usuario.departamento_id == int(final_dept_filter))
                  
                  # Si NO hay filtro explicito y NO es Admin/Gerente, restringir (comportamiento default anterior)
                  elif "Administrador" not in role_str and "Gerente" not in role_str:
@@ -40,8 +43,8 @@ def get_all_users(current_user=None, filter_dept_id=None):
                  query = query.filter(Usuario.departamento_id == current_user.id)
         
         # Si no hay current_user (llamada interna sin auth context?), o si se paso filter_dept_id sin current_user
-        elif filter_dept_id:
-             query = query.filter(Usuario.departamento_id == int(filter_dept_id))
+        elif final_dept_filter:
+             query = query.filter(Usuario.departamento_id == int(final_dept_filter))
         
         users = query.order_by(Usuario.nombre.asc()).all()
         

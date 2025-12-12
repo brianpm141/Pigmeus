@@ -8,41 +8,63 @@ from db.models import Actividad, Usuario, Categoria, Departamento, Proyecto, Col
 # LECTURA (READ)
 # ==========================================
 
-def get_activities(current_user=None, filter_dept_id=None):
+def get_activities(current_user=None, filter_dept_id=None, filter_user_id=None, filter_category_id=None, filter_status_int=None, sort_by="created_at", sort_desc=True):
     db: Session = next(get_db())
     try:
         query = db.query(Actividad).options(
             joinedload(Actividad.usuario_rel).joinedload(Usuario.departamento),
             joinedload(Actividad.categoria_rel).joinedload(Categoria.departamento_rel),
             joinedload(Actividad.proyecto_rel),
-            joinedload(Actividad.colaboradores).joinedload(Colaborador.usuario_rel) # <--- Cargar colaboradores
+            joinedload(Actividad.colaboradores).joinedload(Colaborador.usuario_rel)
         ).filter(Actividad.status == 1)
         
-        # Filtrado por Rol / Contexto
+        # --- 1. Filtrado de Seguridad (Contexto) ---
         if current_user:
-             # Caso A: Es un objeto Usuario
              if hasattr(current_user, 'role'):
                  role_str = str(current_user.role.value) if hasattr(current_user.role, 'value') else str(current_user.role)
                  
-                 # Si ES Admin y hay filtro explicito -> aplicarlo
+                 # Admin: Filtro Dept Global
                  if "Administrador" in role_str:
                      if filter_dept_id and filter_dept_id != "all":
                          query = query.join(Usuario, Actividad.usuario_rel).filter(Usuario.departamento_id == filter_dept_id)
                  
-                 # Si ES Gerente -> Ver todo su departamento
+                 # Gerente: Su Depto
                  elif "Gerente" in role_str:
                      query = query.join(Usuario, Actividad.usuario_rel).filter(Usuario.departamento_id == current_user.departamento_id)
 
-                 # Si ES Básico -> Ver SOLO sus actividades
+                 # Básico: Sus Actividades
                  else:
                      query = query.filter(Actividad.usuario_id == current_user.id)
              
-             # Caso B: Es un objeto Departamento (Login Invitado)
-             elif hasattr(current_user, 'code') and not hasattr(current_user, 'role'):
+             # Invitado (Depto)
+             elif hasattr(current_user, 'code'):
                  dept_id = current_user.id
                  query = query.join(Usuario, Actividad.usuario_rel).filter(Usuario.departamento_id == dept_id)
 
-        activities = query.order_by(Actividad.created_at.desc()).all()
+        # --- 2. Filtros Específicos (Columnas) ---
+        if filter_user_id and str(filter_user_id) != "all":
+            query = query.filter(Actividad.usuario_id == filter_user_id)
+            
+        if filter_category_id and str(filter_category_id) != "all":
+            query = query.filter(Actividad.categoria_id == filter_category_id)
+            
+        if filter_status_int is not None and str(filter_status_int) != "all":
+            query = query.filter(Actividad.estado == int(filter_status_int))
+
+        # --- 3. Ordenamiento ---
+        # Mapeo de campos de orden
+        sort_column = Actividad.created_at # Default
+        if sort_by == "horainicio":
+            sort_column = Actividad.horainicio
+        elif sort_by == "horacierre":
+            sort_column = Actividad.horacierre
+        
+        if sort_desc:
+            query = query.order_by(sort_column.desc())
+        else:
+            query = query.order_by(sort_column.asc())
+
+        activities = query.all()
         return activities
     except Exception as e:
         print(f"Error al obtener actividades: {e}")
