@@ -10,6 +10,66 @@ from controllers.usuarios_controller import get_all_users
 from controllers.categorias_controller import get_all_categories
 
 class ActividadesView(ft.Container):
+    def _build_filter_menu(self, filter_type, label, current_val, options_list):
+        # Encontrar texto a mostrar
+        display_text = label
+        if str(current_val) != "all":
+            # Buscar texto en opciones
+            for opt in options_list:
+                if str(opt.key) == str(current_val):
+                    display_text = opt.text
+                    break
+        
+        # UI del Trigger (Texto + Icono pequeño)
+        text_control = ft.Text(
+            display_text, 
+            size=11, 
+            weight=ft.FontWeight.BOLD, 
+            color=ft.Colors.GREY_400,
+            overflow=ft.TextOverflow.ELLIPSIS, 
+            max_lines=1
+        )
+        
+        def on_item_click(e):
+            new_val = e.control.data
+            
+            # Actualizar estado
+            if filter_type == "user": self.filter_user_val = new_val
+            elif filter_type == "cat": self.filter_cat_val = new_val
+            elif filter_type == "status": self.filter_status_val = new_val
+            elif filter_type == "start": self.filter_start_val = new_val
+            elif filter_type == "end": self.filter_end_val = new_val
+            
+            self.refresh_data()
+
+        menu_items = []
+        for opt in options_list:
+            menu_items.append(
+                ft.PopupMenuItem(
+                    text=opt.text, 
+                    data=opt.key, 
+                    on_click=on_item_click,
+                    checked=(str(current_val) == str(opt.key)) 
+                )
+            )
+            
+        return ft.PopupMenuButton(
+            content=ft.Container(
+                content=ft.Row(
+                    [
+                        text_control,
+                        ft.Icon(ft.Icons.ARROW_DROP_DOWN, size=16, color=ft.Colors.GREY_400)
+                    ],
+                    alignment=ft.MainAxisAlignment.START,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    spacing=0,
+                ),
+                padding=ft.padding.symmetric(horizontal=0), 
+            ),
+            items=menu_items,
+            tooltip=label
+        )
+
     def __init__(self, current_user=None):
         super().__init__()
         self.expand = True
@@ -36,6 +96,8 @@ class ActividadesView(ft.Container):
         self.filter_user_val = "all"
         self.filter_cat_val = "all"
         self.filter_status_val = "all"
+        self.filter_start_val = "all"
+        self.filter_end_val = "all"
         self.sort_field = "created_at"
         self.sort_desc = True
         
@@ -273,6 +335,8 @@ class ActividadesView(ft.Container):
             filter_user_id=self.filter_user_val,
             filter_category_id=self.filter_cat_val,
             filter_status_int=self.filter_status_val,
+            filter_date_start=self.filter_start_val,
+            filter_date_end=self.filter_end_val,
             sort_by=self.sort_field,
             sort_desc=self.sort_desc
         )
@@ -297,10 +361,10 @@ class ActividadesView(ft.Container):
                 offset=ft.Offset(0, 4)
             )
         )
-
-        if activities:
-            rows_data = []
-            for act in activities:
+        rows_data = []
+        # Enforce execution of table creation logic even if no activities found
+        if True: 
+            for act in activities or []:
                 # --- 1. USUARIO ---
                 user_nombre = act.usuario_rel.nombre if act.usuario_rel else "Desconocido"
                 
@@ -329,7 +393,7 @@ class ActividadesView(ft.Container):
                     content=user_column,
                     alignment=ft.alignment.center_left,
                     padding=ft.padding.symmetric(vertical=10),
-                    width=160 # Ancho fijo estandarizado
+                    width=130 # Ancho ajustado para evitar overflow
                 )
 
                 # --- 2. CATEGORIA ---
@@ -346,14 +410,14 @@ class ActividadesView(ft.Container):
                 cat_cell = ft.Container(
                     content=ft.Text(cat_name, size=14, color=ft.Colors.GREY_700),
                     alignment=ft.alignment.center_left,
-                    width=120 # Ancho fijo estandarizado
+                    width=100 # Ancho ajustado
                 )
 
                 # --- 3. DETALLES ---
                 # Max lines = 2 para evitar que rompa el layout si es muy largo
                 detalles_cell = ft.Container(
                     content=ft.Text(act.descripcion, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS, size=13, color=ft.Colors.GREY_600),
-                    width=220, # Ancho fijo (ya estaba)
+                    width=180, # Ancho reducido
                     alignment=ft.alignment.center_left 
                 )
 
@@ -361,7 +425,7 @@ class ActividadesView(ft.Container):
                 estado_cell = ft.Container(
                     content=self._build_status_badge(act.estado),
                     alignment=ft.alignment.center_left,
-                    width=120 # Ancho fijo estandarizado
+                    width=100 # Ancho ajustado
                 )
 
                 # --- 5. FECHAS (Hora / Fecha) ---
@@ -410,12 +474,16 @@ class ActividadesView(ft.Container):
                  role_str = str(self.current_user.role.value) if hasattr(self.current_user.role, 'value') else str(self.current_user.role)
                  is_basic_role = "Básico" in role_str
             
-            # Determinar Header de Usuario
-            user_header_control = ft.Text("USUARIO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)
+            # Determinar Header de Usuario (Texto plano para básico)
+            user_header_control = ft.Container(
+                ft.Text("USUARIO", color=ft.Colors.GREY_400, size=11, weight=ft.FontWeight.BOLD),
+                alignment=ft.alignment.center_left,
+                padding=ft.padding.only(left=2) # Align with dropdown text
+            )
             
             # Solo Admins y Gerentes ven el filtro
             if not is_basic_role:
-                users_opts = [ft.dropdown.Option("all", "Todos")]
+                users_opts = [ft.dropdown.Option("all", "USUARIO")]
                 
                 filter_dept_arg = None
                 
@@ -474,17 +542,20 @@ class ActividadesView(ft.Container):
                     ft.Dropdown(
                         options=users_opts,
                         value=self.filter_user_val,
-                        text_size=12,
-                        content_padding=5,
+                        text_size=11,
+                        text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_400),
+                        content_padding=0,
+                        alignment=ft.alignment.center_left,
+                        dense=True,
                         border_width=0,
-                        hint_text="Usuario",
+                        hint_text="USUARIO",
                         on_change=on_user_filter_change
                     ),
-                    width=150, padding=0
+                    width=85, padding=0
                 )
 
             # Categorias
-            cat_opts = [ft.dropdown.Option("all", "Todas")]
+            cat_opts = [ft.dropdown.Option("all", "CATEGORÍA")]
             
             # Determinar filtro de departamento para categorías
             cat_dept_filter = None
@@ -530,56 +601,65 @@ class ActividadesView(ft.Container):
 
             # Status
             status_opts = [
-                ft.dropdown.Option("all", "Todos"),
+                ft.dropdown.Option("all", "ESTADO"),
                 ft.dropdown.Option("0", "Pendientes"),
                 ft.dropdown.Option("1", "Completadas"),
             ]
 
+            # Date Filters
+            time_opts = [
+                ft.dropdown.Option("all", "INICIO / CIERRE"), # Generic default? No, specific per column
+            ]
+            
+            # Start/End need specific defaults because they share list? 
+            # No, I should make separate lists or handle it.
+            # Let's simple create two lists or just set the label dynamically? 
+            # The dropdown uses the list.
+            
+            start_opts = [
+                ft.dropdown.Option("all", "INICIO"),
+                ft.dropdown.Option("1h", "Última hora"),
+                ft.dropdown.Option("today", "Hoy"),
+                ft.dropdown.Option("week", "Esta semana"),
+                ft.dropdown.Option("month", "Este mes"),
+            ]
+            end_opts = [
+                ft.dropdown.Option("all", "CIERRE"),
+                ft.dropdown.Option("1h", "Última hora"),
+                ft.dropdown.Option("today", "Hoy"),
+                ft.dropdown.Option("week", "Esta semana"),
+                ft.dropdown.Option("month", "Este mes"),
+            ]
+
             # --- HEADER WIDGETS ---
-            def on_filter_change(e, filter_type):
-                val = e.control.value
-                if filter_type == "cat": self.filter_cat_val = val
-                elif filter_type == "status": self.filter_status_val = val
-                self.refresh_data()
+            # Reemplazamos ft.Dropdown con PopupMenuButton usando nuestra función helper
             
-            cat_header = ft.Dropdown(
-                options=cat_opts,
-                value=self.filter_cat_val,
-                text_size=12,
-                content_padding=5,
-                border_width=0,
-                 hint_text="Categoría",
-                on_change=lambda e: on_filter_change(e, "cat")
-            )
+            user_header_control = self._build_filter_menu("user", "USUARIO", self.filter_user_val, users_opts)
             
-            status_header = ft.Dropdown(
-                options=status_opts,
-                value=self.filter_status_val,
-                text_size=12,
-                content_padding=5,
-                border_width=0,
-                 hint_text="Estado",
-                on_change=lambda e: on_filter_change(e, "status")
-            )
+            cat_header = self._build_filter_menu("cat", "CATEGORÍA", self.filter_cat_val, cat_opts)
             
-            # Sorting Header Click
-            def on_sort_col(e):
-                idx = e.column_index
-                # Map index to Sort Field
-                # 4=Inicio, 5=Cierre
-                new_sort_field = "created_at"
-                if idx == 4: new_sort_field = "horainicio"
-                elif idx == 5: new_sort_field = "horacierre"
-                else: return # Only sort date columns requested
-                
-                # Toggle direction if clicking same field
-                if self.sort_field == new_sort_field:
-                    self.sort_desc = not self.sort_desc
-                else:
-                    self.sort_field = new_sort_field
-                    self.sort_desc = True # Default desc for new field
-                
-                self.refresh_data()
+            status_header = self._build_filter_menu("status", "ESTADO", self.filter_status_val, status_opts)
+            
+            start_header = self._build_filter_menu("start", "INICIO", self.filter_start_val, start_opts)
+            
+            end_header = self._build_filter_menu("end", "CIERRE", self.filter_end_val, end_opts)
+            
+
+
+            # --- MANEJO DE ESTADO VACÍO ---
+            if not rows_data:
+                rows_data.append(
+                    ft.DataRow(
+                        cells=[
+                            ft.DataCell(ft.Text("Sin registros", color=ft.Colors.GREY_400, italic=True)), # Usuario
+                            ft.DataCell(ft.Text("")), # Categoria
+                            ft.DataCell(ft.Text("")), # Detalles
+                            ft.DataCell(ft.Text("")), # Estado
+                            ft.DataCell(ft.Text("")), # Inicio
+                            ft.DataCell(ft.Text("")), # Cierre
+                        ]
+                    )
+                )
 
             # Insertar tabla en el card
             self.table = ft.DataTable(
@@ -588,48 +668,42 @@ class ActividadesView(ft.Container):
                 # CONFIGURACIÓN CLAVE PARA EL ESPACIADO CORRECTO
                 data_row_min_height=80,       # Altura mínima reservada
                 data_row_max_height=float("inf"), # Crece si es necesario
-                column_spacing=20,
+                column_spacing=5, # Minimal spacing
                 divider_thickness=0.5,
                 show_checkbox_column=False,
-                sort_column_index=4 if self.sort_field == "horainicio" else (5 if self.sort_field == "horacierre" else None),
-                sort_ascending=not self.sort_desc,
                 columns=[
                     ft.DataColumn(
-                        user_header_control
+                        ft.Container(user_header_control, width=130, padding=0)
                     ),
                     ft.DataColumn(
-                         ft.Container(cat_header, width=120, padding=0),
-                    ),
-                    ft.DataColumn(ft.Text("DETALLES", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD)),
-                    ft.DataColumn(
-                         ft.Container(status_header, width=110, padding=0),
+                         ft.Container(cat_header, width=100, padding=0),
                     ),
                     ft.DataColumn(
-                        ft.Text("INICIO", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD),
-                        on_sort=on_sort_col
+                        ft.Container(
+                            ft.Text("DETALLES", color=ft.Colors.GREY_400, size=11, weight=ft.FontWeight.BOLD),
+                            width=180 
+                        )
                     ),
                     ft.DataColumn(
-                        ft.Text("CIERRE", color=ft.Colors.GREY_400, size=12, weight=ft.FontWeight.BOLD),
-                        on_sort=on_sort_col
+                         ft.Container(status_header, width=100, padding=0),
+                    ),
+                    ft.DataColumn(
+                        ft.Container(start_header, width=80, padding=0),
+                    ),
+                    ft.DataColumn(
+                        ft.Container(end_header, width=80, padding=0),
                     ),
                 ],
                 rows=rows_data
             )
+            
+            # Always show the table (so headers remain visible)
             content_card.content.controls[2] = self.table
-        else:
-            # Empty State
-            content_card.content.controls[2] = ft.Container(
-                content=ft.Column(
-                    controls=[
-                        ft.Icon(ft.Icons.INBOX_OUTLINED, size=50, color=ft.Colors.GREY_300),
-                        ft.Text("No hay actividades registradas.", color=ft.Colors.GREY_400, size=14)
-                    ],
-                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                    spacing=10
-                ),
-                padding=50,
-                alignment=ft.alignment.center
-            )
+            
+            # Optional: Add a "No results" message BELOW the table if empty, 
+            # but user specifically wants headers.
+            # If rows_data is empty, the table will just show headers and no rows.
+            
 
         # Actualizar el contenedor principal
         self.data_container.content = ft.Column(
