@@ -8,6 +8,8 @@ from views.usuarios import UsersView
 from views.usuarios import UsersView
 from views.categorias import CategoriesView
 from views.proyectos import ProjectsView
+from views.pendientes import PendingView
+from views.mantenimiento import MaintenanceView
 from views.loading import LoadingView
 from views.login_options import LoginOptionsView
 from db.seed import seed_data 
@@ -76,6 +78,10 @@ def main(page: ft.Page):
                 new_content = CategoriesView(session_data)
             elif view_name == "Proyectos":
                 new_content = ProjectsView(session_data)
+            elif view_name == "Pendientes":
+                new_content = PendingView(session_data)
+            elif view_name == "Mantenimiento":
+                new_content = MaintenanceView(session_data)
             else:
                 new_content = ft.Column(
                     controls=[

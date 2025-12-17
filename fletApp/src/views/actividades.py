@@ -545,7 +545,7 @@ class ActividadesView(ft.Container):
                         text_size=11,
                         text_style=ft.TextStyle(weight=ft.FontWeight.BOLD, color=ft.Colors.GREY_400),
                         content_padding=0,
-                        alignment=ft.alignment.center_left,
+
                         dense=True,
                         border_width=0,
                         hint_text="USUARIO",

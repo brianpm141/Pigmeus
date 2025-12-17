@@ -107,11 +107,23 @@ class Sidebar(ft.Container):
             ),
             
             # --- Menú Común ---
+            # --- Menú Común ---
             self._build_item(ft.Icons.TASK_ALT, "Actividades", is_selected=True),
-            self._build_item(ft.Icons.ROCKET_LAUNCH_OUTLINED, "Proyectos"),
         ]
         
+        # Pendientes (Solo usuarios reales, no perfiles de departamento)
+        if isinstance(self.current_user, Usuario):
+            controls_list.append(
+                self._build_item(ft.Icons.CHECKLIST, "Pendientes")
+            )
+
+        # Proyectos
+        controls_list.append(
+            self._build_item(ft.Icons.ROCKET_LAUNCH_OUTLINED, "Proyectos")
+        )
+        
         # --- Menú Gerencial/Admin ---
+
         if show_manager_items:
             controls_list.extend([
                 self._build_item(ft.Icons.PEOPLE_OUTLINE, "Usuarios"),
@@ -120,9 +132,10 @@ class Sidebar(ft.Container):
             
         # --- Menú Admin ---
         if show_admin_items:
-            controls_list.append(
-                self._build_item(ft.Icons.BUSINESS, "Departamentos")
-            )
+            controls_list.extend([
+                self._build_item(ft.Icons.BUSINESS, "Departamentos"),
+                self._build_item(ft.Icons.VPN_KEY, "Mantenimiento")
+            ])
 
         # Spacer (empujar logout abajo)
         controls_list.append(ft.Container(expand=True))

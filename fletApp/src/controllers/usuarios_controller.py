@@ -12,6 +12,8 @@ from db.models import Usuario, Password, Departamento, UserRole
 def get_all_users(current_user=None, filter_dept_id=None, dept_id=None):
     # Support both filter_dept_id and dept_id for backwards compatibility/view convenience
     final_dept_filter = dept_id if dept_id else filter_dept_id
+    if str(final_dept_filter) == "all":
+        final_dept_filter = None
 
     db: Session = next(get_db())
     try:
