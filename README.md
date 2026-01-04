@@ -38,24 +38,3 @@ Pigmeus Pro es una herramienta diseñada para registrar y dar seguimiento a acti
 ### Panel de Actividades
 ![Actividades](Capturas/pt_actividades.png)
 
-## 🚀 Cómo Ejecutar el Proyecto
-
-### Prerrequisitos
-1.  Tener Python instalado.
-2.  Tener una instancia de PostgreSQL corriendo.
-3.  Configurar la base de datos en `fletApp/src/db/database.py`.
-
-### Instalación de Dependencias
-
-```bash
-pip install flet sqlalchemy psycopg2
-```
-
-### Ejecución
-
-Navega a la carpeta del proyecto y ejecuta el archivo principal:
-
-```bash
-cd fletApp/src
-python main.py
-```
