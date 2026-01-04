@@ -1,36 +1,61 @@
-# RegistroSoporte
-Un mini codigo para registrar actividades de atencion a cliente de forma rapida.
+# Pigmeus Pro (Flet Version)
 
-### Feo pero funcional
+> [!WARNING]
+> **PROYECTO ACTUALMENTE INCOMPLETO / WORK IN PROGRESS**
+> Este proyecto se encuentra en una etapa activa de desarrollo. Muchas funcionalidades pueden cambiar o no estar completamente implementadas.
 
-Codico creado en una hora con chatGPT como lider de proyecto
-Permite registrar llamadas de soporte junto con el usuario que la atendio y poder exportarlo en formato excel.
+Un sistema moderno para la gestión de actividades, usuarios y proyectos, reescrito completamente utilizando **Flet** para una interfaz responsiva y **PostgreSQL** para una gestión robusta de datos.
 
-## Registro de llamadas
- Permite registrar la hora y fecha exacta del registro de la llamada solo seleccionando el usuario que la recibio y la categoria
+## 📋 Descripción
 
- ![error_141](Capturas/Reportes.png)
+Pigmeus Pro es una herramienta diseñada para registrar y dar seguimiento a actividades de soporte y gestión interna. A diferencia de la versión anterior, esta iteración utiliza una arquitectura cliente-servidor más robusta y una interfaz de usuario moderna y fluida.
 
-+ Registra las llamadas y se quedan pendientes
-+ Se puede actualizar el estado de una llamada cuando se completa la atencion
+## ✨ Características Principales
 
-## Registro de usuarios
+*   **Gestión de Actividades**: Registro detallado de actividades con control de tiempos y estados.
+*   **Gestión de Usuarios y Roles**: Administración de usuarios con diferentes niveles de acceso (Administrador, Gerente, Básico).
+*   **Departamentos y Proyectos**: Organización jerárquica de tareas por departamentos y proyectos específicos.
+*   **Sistema de Pendientes**: Módulo dedicado para el seguimiento de tareas pendientes.
+*   **Colaboración**: Soporte para múltiples colaboradores en una misma actividad.
+*   **Interfaz Moderna**: UI construida con Flet, ofreciendo una experiencia de usuario limpia y reactiva.
 
-![error_141](Capturas/usuarios_categorias.png)
+## 🛠️ Tecnologías Utilizadas
 
-+ Permite registrar los usuarios que dan atencion
-+ Permite registrar las diversas categorias de llamadas
+*   **Lenguaje**: [Python](https://www.python.org/) (3.9+)
+*   **Framework UI**: [Flet](https://flet.dev/) (v0.28.3)
+*   **Base de Datos**: [PostgreSQL](https://www.postgresql.org/)
+*   **ORM**: [SQLAlchemy](https://www.sqlalchemy.org/)
+*   **Driver DB**: `psycopg2`
 
-## Exportar a excel 
+## 📸 Capturas de Pantalla
 
-Permite exportar la informacion a tablas de exel con el mismo orden y formato 
+### Inicio de Sesión
+![Login](Capturas/pt_login.png)
 
-![error_141](Capturas/excel.png)
+### Gestión de Usuarios
+![Usuarios](Capturas/pt_usuarios.png)
 
-# Como Ejecutar?
+### Panel de Actividades
+![Actividades](Capturas/pt_actividades.png)
 
-El archivo es un ejecutable basico, que a la hora de que se activa por primera vez genera un archivo sqlite para almacenar los datos historicos
+## 🚀 Cómo Ejecutar el Proyecto
 
-![error_141](Capturas/archivos.png)
+### Prerrequisitos
+1.  Tener Python instalado.
+2.  Tener una instancia de PostgreSQL corriendo.
+3.  Configurar la base de datos en `fletApp/src/db/database.py`.
 
-No necesita dependencias extras o python, solo estar en la misma carpeta donde esta el archivo de base de datos
+### Instalación de Dependencias
+
+```bash
+pip install flet sqlalchemy psycopg2
+```
+
+### Ejecución
+
+Navega a la carpeta del proyecto y ejecuta el archivo principal:
+
+```bash
+cd fletApp/src
+python main.py
+```
